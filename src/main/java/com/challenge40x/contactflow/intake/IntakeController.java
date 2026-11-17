@@ -1,5 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,7 +22,8 @@ public class IntakeController {
 
   // 접수 결과에 따른 HTTP 상태와 접수 ID 반환
   @PostMapping
-  public ResponseEntity<IntakeResponse> createIntake(@RequestBody IntakeRequest request) {
+  public ResponseEntity<IntakeResponse> createIntake(
+      @Valid @RequestBody IntakeRequest request) {
     var result = intakeService.receive(new ReceiveIntakeCommand(
         request.source(), request.externalId(), request.customerKey()));
     var status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
@@ -34,7 +37,12 @@ public class IntakeController {
     return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
-  public record IntakeRequest(IntakeSource source, String externalId, String customerKey) {
+  // 원본 접수 ID의 누락·빈 문자열·공백 입력 차단
+  public record IntakeRequest(
+      IntakeSource source,
+      @NotBlank String externalId,
+      String customerKey
+  ) {
   }
 
   public record IntakeResponse(long intakeId) {
