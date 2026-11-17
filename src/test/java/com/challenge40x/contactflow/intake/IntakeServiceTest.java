@@ -30,8 +30,8 @@ class IntakeServiceTest {
     var command = new ReceiveIntakeCommand(
         IntakeSource.WEBSITE, "WEB-001", "CUSTOMER-001");
 
-    long firstId = intakeService.receive(command);
-    long secondId = intakeService.receive(command);
+    long firstId = intakeService.receive(command).intakeId();
+    long secondId = intakeService.receive(command).intakeId();
 
     assertThat(secondId).isEqualTo(firstId);
     assertThat(jdbcTemplate.queryForObject("""
@@ -55,7 +55,7 @@ class IntakeServiceTest {
       if (!start.await(5, TimeUnit.SECONDS)) {
         throw new IllegalStateException("Concurrent requests did not start");
       }
-      return intakeService.receive(command);
+      return intakeService.receive(command).intakeId();
     };
 
     try {
@@ -88,7 +88,7 @@ class IntakeServiceTest {
     var conflicting = new ReceiveIntakeCommand(
         IntakeSource.WEBSITE, "WEB-CONFLICT-001", "CUSTOMER-004");
 
-    long originalId = intakeService.receive(original);
+    long originalId = intakeService.receive(original).intakeId();
 
     assertThatThrownBy(() -> intakeService.receive(conflicting))
         .isInstanceOf(IntakeConflictException.class);
@@ -108,8 +108,8 @@ class IntakeServiceTest {
     var meta = new ReceiveIntakeCommand(
         IntakeSource.META, "SHARED-001", "CUSTOMER-REAPPLY-001");
 
-    long websiteId = intakeService.receive(website);
-    long metaId = intakeService.receive(meta);
+    long websiteId = intakeService.receive(website).intakeId();
+    long metaId = intakeService.receive(meta).intakeId();
 
     assertThat(metaId).isNotEqualTo(websiteId);
     assertThat(jdbcTemplate.queryForObject("""

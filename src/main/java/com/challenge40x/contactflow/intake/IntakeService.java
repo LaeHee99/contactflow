@@ -12,13 +12,13 @@ public class IntakeService {
     this.intakeRepository = intakeRepository;
   }
 
-  // 신규 접수 저장 및 동일 접수 키의 내용 충돌 확인
+  // 접수 저장, 내용 충돌 확인 및 신규 생성 여부 반환
   @Transactional
-  public long receive(ReceiveIntakeCommand command) {
-    intakeRepository.insertIfAbsent(
+  public ReceiveResult receive(ReceiveIntakeCommand command) {
+    boolean created = intakeRepository.insertIfAbsent(
         command.source().name(),
         command.externalId(),
-        command.customerKey());
+        command.customerKey()) == 1;
 
     Intake storedIntake = intakeRepository
         .findBySourceAndExternalId(command.source(), command.externalId())
@@ -28,6 +28,9 @@ public class IntakeService {
       throw new IntakeConflictException();
     }
 
-    return storedIntake.getId();
+    return new ReceiveResult(storedIntake.getId(), created);
+  }
+
+  public record ReceiveResult(long intakeId, boolean created) {
   }
 }
