@@ -12,7 +12,7 @@ public class IntakeService {
     this.intakeRepository = intakeRepository;
   }
 
-  // 신규 접수 저장 및 중복 접수의 기존 ID 반환
+  // 신규 접수 저장 및 동일 접수 키의 내용 충돌 확인
   @Transactional
   public long receive(ReceiveIntakeCommand command) {
     intakeRepository.insertIfAbsent(
@@ -20,9 +20,14 @@ public class IntakeService {
         command.externalId(),
         command.customerKey());
 
-    return intakeRepository
+    Intake storedIntake = intakeRepository
         .findBySourceAndExternalId(command.source(), command.externalId())
-        .orElseThrow(() -> new IllegalStateException("Stored intake not found"))
-        .getId();
+        .orElseThrow(() -> new IllegalStateException("Stored intake not found"));
+
+    if (!storedIntake.hasCustomerKey(command.customerKey())) {
+      throw new IntakeConflictException();
+    }
+
+    return storedIntake.getId();
   }
 }

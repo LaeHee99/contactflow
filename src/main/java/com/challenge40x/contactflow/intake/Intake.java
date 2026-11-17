@@ -40,4 +40,9 @@ public class Intake {
   public Long getId() {
     return id;
   }
+
+  // 저장된 고객 식별자와 요청의 고객 식별자 비교
+  boolean hasCustomerKey(String customerKey) {
+    return this.customerKey.equals(customerKey);
+  }
 }
