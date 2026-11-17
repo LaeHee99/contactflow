@@ -41,8 +41,10 @@ public class IntakeController {
   // 상담 연결 결과에 따라 201·200·404 응답 반환
   @PutMapping("/{intakeId}/consultation")
   public ResponseEntity<ConsultationLinkResponse> linkConsultation(
-      @PathVariable("intakeId") long intakeId) {
-    var result = intakeConsultationService.link(intakeId);
+      @PathVariable("intakeId") long intakeId,
+      @Valid @RequestBody(required = false) ConsultationLinkRequest request) {
+    Long targetConsultationId = request == null ? null : request.consultationId();
+    var result = intakeConsultationService.link(intakeId, targetConsultationId);
     if (result.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
@@ -68,6 +70,10 @@ public class IntakeController {
   }
 
   public record IntakeResponse(long intakeId) {
+  }
+
+  // 담당자가 지정한 기존 상담 ID 입력
+  public record ConsultationLinkRequest(@NotNull Long consultationId) {
   }
 
   public record ConsultationLinkResponse(long consultationId) {

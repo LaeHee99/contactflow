@@ -28,4 +28,7 @@ public interface IntakeRepository extends JpaRepository<Intake, Long> {
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   @Query("select i from Intake i where i.id = :intakeId")
   Optional<Intake> findByIdForUpdate(@Param("intakeId") long intakeId);
+
+  // 대상 상담에 같은 고객의 원본이 이미 연결되어 있는지 확인
+  boolean existsByConsultation_IdAndCustomerKey(long consultationId, String customerKey);
 }

@@ -19,9 +19,9 @@ public class IntakeConsultationService {
     this.consultationRepository = consultationRepository;
   }
 
-  // 미연결 원본에 상담 생성 및 재처리 시 기존 상담 반환
+  // 새 상담 생성 또는 지정된 기존 상담 연결 및 재처리 결과 반환
   @Transactional
-  public Optional<LinkResult> link(long intakeId) {
+  public Optional<LinkResult> link(long intakeId, Long targetConsultationId) {
     var intake = intakeRepository.findByIdForUpdate(intakeId);
     if (intake.isEmpty()) {
       return Optional.empty();
@@ -30,12 +30,32 @@ public class IntakeConsultationService {
     Intake storedIntake = intake.get();
     Consultation existing = storedIntake.getConsultation();
     if (existing != null) {
+      if (targetConsultationId != null && !existing.getId().equals(targetConsultationId)) {
+        throw new IntakeConflictException();
+      }
+
       return Optional.of(new LinkResult(existing.getId(), false));
     }
 
-    Consultation created = consultationRepository.save(new Consultation());
-    storedIntake.linkConsultation(created);
-    return Optional.of(new LinkResult(created.getId(), true));
+    Consultation target;
+    if (targetConsultationId == null) {
+      target = consultationRepository.save(new Consultation());
+    } else {
+      var requestedConsultation = consultationRepository.findById(targetConsultationId);
+      if (requestedConsultation.isEmpty()) {
+        return Optional.empty();
+      }
+
+      if (!intakeRepository.existsByConsultation_IdAndCustomerKey(
+          targetConsultationId, storedIntake.getCustomerKey())) {
+        throw new IntakeConflictException();
+      }
+
+      target = requestedConsultation.get();
+    }
+
+    storedIntake.linkConsultation(target);
+    return Optional.of(new LinkResult(target.getId(), true));
   }
 
   public record LinkResult(long consultationId, boolean created) {

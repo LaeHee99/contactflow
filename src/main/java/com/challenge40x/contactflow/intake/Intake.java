@@ -54,6 +54,11 @@ public class Intake {
     return this.customerKey.equals(customerKey);
   }
 
+  // 연결 대상 상담의 고객 일치 확인에 사용할 식별자 반환
+  String getCustomerKey() {
+    return customerKey;
+  }
+
   // 원본 접수에 연결된 상담 조회
   Consultation getConsultation() {
     return consultation;
