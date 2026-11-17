@@ -36,4 +36,27 @@ class IntakeApiTest {
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.intakeId").isNumber());
   }
+
+  // 동일 접수 키의 고객 정보 불일치 시 409 응답 검증
+  @Test
+  void returnsConflictForDifferentCustomerOnSameIntakeKey() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var request = """
+        {
+          "source": "WEBSITE",
+          "externalId": "WEB-API-CONFLICT-001",
+          "customerKey": "%s"
+        }
+        """;
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request.formatted("CUSTOMER-001")))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(request.formatted("CUSTOMER-002")))
+        .andExpect(status().isConflict());
+  }
 }
