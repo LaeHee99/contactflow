@@ -3,6 +3,7 @@ package com.challenge40x.contactflow.intake;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,5 +109,28 @@ class IntakeApiTest {
                 }
                 """))
         .andExpect(status().isBadRequest());
+  }
+
+  // 원본 접수의 상담 연결 재처리 시 기존 상담 ID 반환 검증
+  @Test
+  void linksIntakeToConsultationOnlyOnce() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    long intakeId = webApplicationContext.getBean(IntakeService.class)
+        .receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-RECOVERY-001", "CUSTOMER-RECOVERY-001"))
+        .intakeId();
+
+    var firstResponse = mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.consultationId").isNumber())
+        .andReturn()
+        .getResponse();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.consultationId").isNumber())
+        .andExpect(result -> org.assertj.core.api.Assertions
+            .assertThat(result.getResponse().getContentAsString())
+            .isEqualTo(firstResponse.getContentAsString()));
   }
 }
