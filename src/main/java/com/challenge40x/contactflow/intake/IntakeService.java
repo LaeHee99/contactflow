@@ -12,16 +12,17 @@ public class IntakeService {
     this.intakeRepository = intakeRepository;
   }
 
-  // 동일 원본 접수 재전송 시 기존 접수 ID 반환
+  // 원본 접수 저장 후 신규 또는 기존 접수 ID 반환
   @Transactional
   public long receive(ReceiveIntakeCommand command) {
+    intakeRepository.insertIfAbsent(
+        command.source().name(),
+        command.externalId(),
+        command.customerKey());
+
     return intakeRepository
         .findBySourceAndExternalId(command.source(), command.externalId())
-        .orElseGet(() -> intakeRepository.save(new Intake(
-            command.source(),
-            command.externalId(),
-            command.customerKey()
-        )))
+        .orElseThrow(() -> new IllegalStateException("Stored intake not found"))
         .getId();
   }
 }
