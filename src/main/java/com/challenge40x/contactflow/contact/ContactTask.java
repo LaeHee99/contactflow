@@ -29,6 +29,10 @@ public class ContactTask {
   @Column(name = "task_type", nullable = false)
   private TaskType taskType;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", nullable = false)
+  private Status status;
+
   protected ContactTask() {
   }
 
@@ -37,7 +41,25 @@ public class ContactTask {
     var task = new ContactTask();
     task.consultation = consultation;
     task.taskType = TaskType.FIRST_CONTACT;
+    task.status = Status.PENDING;
     return task;
+  }
+
+  // 연락 작업의 조회 응답에 사용할 정보 반환
+  public long getId() {
+    return id;
+  }
+
+  public String getTaskType() {
+    return taskType.name();
+  }
+
+  public String getStatus() {
+    return status.name();
+  }
+
+  private enum Status {
+    PENDING
   }
 
   private enum TaskType {
