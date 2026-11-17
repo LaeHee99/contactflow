@@ -1,5 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
+import com.challenge40x.contactflow.contact.ContactTask;
+import com.challenge40x.contactflow.contact.ContactTaskRepository;
 import com.challenge40x.contactflow.consultation.Consultation;
 import com.challenge40x.contactflow.consultation.ConsultationRepository;
 import java.util.Optional;
@@ -11,12 +13,15 @@ public class IntakeConsultationService {
 
   private final IntakeRepository intakeRepository;
   private final ConsultationRepository consultationRepository;
+  private final ContactTaskRepository contactTaskRepository;
 
   public IntakeConsultationService(
       IntakeRepository intakeRepository,
-      ConsultationRepository consultationRepository) {
+      ConsultationRepository consultationRepository,
+      ContactTaskRepository contactTaskRepository) {
     this.intakeRepository = intakeRepository;
     this.consultationRepository = consultationRepository;
+    this.contactTaskRepository = contactTaskRepository;
   }
 
   // 새 상담 생성 또는 지정된 기존 상담 연결 및 재처리 결과 반환
@@ -40,6 +45,9 @@ public class IntakeConsultationService {
     Consultation target;
     if (targetConsultationId == null) {
       target = consultationRepository.save(new Consultation());
+
+      // 신규 상담의 첫 연락 작업 저장
+      contactTaskRepository.save(ContactTask.firstContact(target));
     } else {
       var requestedConsultation = consultationRepository.findById(targetConsultationId);
       if (requestedConsultation.isEmpty()) {
