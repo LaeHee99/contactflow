@@ -59,4 +59,21 @@ class IntakeApiTest {
             .content(request.formatted("CUSTOMER-002")))
         .andExpect(status().isConflict());
   }
+
+  // 공백으로만 구성된 원본 접수 ID의 400 응답 검증
+  @Test
+  void rejectsBlankExternalId() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "source": "WEBSITE",
+                  "externalId": "   ",
+                  "customerKey": "CUSTOMER-API-INVALID-001"
+                }
+                """))
+        .andExpect(status().isBadRequest());
+  }
 }
