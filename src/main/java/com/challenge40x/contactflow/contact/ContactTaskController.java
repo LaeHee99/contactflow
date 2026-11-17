@@ -42,12 +42,21 @@ public class ContactTaskController {
       @PathVariable("taskId") long taskId,
       @Valid @RequestBody AssignmentRequest request) {
     boolean assigned = contactTaskAssignmentService.assign(
-        consultationId, taskId, request.assignee(), request.dueAt());
+        consultationId,
+        taskId,
+        request.assignee(),
+        request.dueAt(),
+        request.customerPreferredAt()
+    );
 
     return assigned ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
   }
 
-  // 담당자 및 기본 연락 기한 필수 입력
-  public record AssignmentRequest(@NotBlank String assignee, @NotNull Instant dueAt) {
+  // 담당자와 기본 기한 필수 입력 및 고객 희망 시각 선택 입력
+  public record AssignmentRequest(
+      @NotBlank String assignee,
+      @NotNull Instant dueAt,
+      Instant customerPreferredAt
+  ) {
   }
 }

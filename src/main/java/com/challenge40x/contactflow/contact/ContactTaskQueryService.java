@@ -33,14 +33,21 @@ public class ContactTaskQueryService {
             task.getTaskType(),
             task.getStatus(),
             task.getAssignee(),
-            task.getDueAt() == null ? null : task.getDueAt().toString()))
+            task.getDueAt() == null ? null : task.getDueAt().toString(),
+            task.getCustomerPreferredAt() == null ? null : task.getCustomerPreferredAt().toString()))
         .toList();
 
     return Optional.of(tasks);
   }
 
-  // 연락 작업 상태와 배정 정보 응답 형식
+  // 연락 작업 상태와 서로 구분된 기본 기한·고객 희망 시각 반환
   public record ContactTaskView(
-      long taskId, String taskType, String status, String assignee, String dueAt) {
+      long taskId,
+      String taskType,
+      String status,
+      String assignee,
+      String dueAt,
+      String customerPreferredAt
+  ) {
   }
 }

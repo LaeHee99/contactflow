@@ -40,6 +40,9 @@ public class ContactTask {
   @Column(name = "due_at")
   private Instant dueAt;
 
+  @Column(name = "customer_preferred_at")
+  private Instant customerPreferredAt;
+
   protected ContactTask() {
   }
 
@@ -65,10 +68,11 @@ public class ContactTask {
     return status.name();
   }
 
-  // 연락 작업 담당자와 기본 연락 기한 지정
-  void assign(String assignee, Instant dueAt) {
+  // 담당자 지정 및 기본 기한과 고객 희망 시각 별도 저장
+  void assign(String assignee, Instant dueAt, Instant customerPreferredAt) {
     this.assignee = assignee;
     this.dueAt = dueAt;
+    this.customerPreferredAt = customerPreferredAt;
   }
 
   // 배정된 담당자와 기본 연락 기한 조회
@@ -78,6 +82,11 @@ public class ContactTask {
 
   Instant getDueAt() {
     return dueAt;
+  }
+
+  // 고객 희망 연락 시각 조회
+  Instant getCustomerPreferredAt() {
+    return customerPreferredAt;
   }
 
   private enum Status {
