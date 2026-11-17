@@ -4,11 +4,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -153,6 +155,13 @@ class IntakeApiTest {
         .getResponse()
         .getContentAsString();
 
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+    long consultationId = jdbcTemplate.queryForObject("""
+     SELECT consultation_id FROM intake WHERE id = ?
+     """, Long.class, metaId);
+
+    assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
+
     for (int attempt = 0; attempt < 2; attempt++) {
       mockMvc.perform(put("/api/intakes/{intakeId}/consultation", websiteId)
               .contentType(MediaType.APPLICATION_JSON)
@@ -161,5 +170,20 @@ class IntakeApiTest {
           .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
               .content().json(existingLink));
     }
+
+    assertThat(jdbcTemplate.queryForObject("""
+     SELECT COUNT(*) FROM intake
+     WHERE id IN (?, ?) AND consultation_id = ?
+     """, Long.class, websiteId, metaId, consultationId)).isEqualTo(2L);
+
+    assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
+  }
+
+  // 상담에 연결된 첫 연락 작업 수 조회
+  private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
+    return jdbcTemplate.queryForObject("""
+        SELECT COUNT(*) FROM contact_task
+        WHERE consultation_id = ? AND task_type = ?
+        """, Long.class, consultationId, "FIRST_CONTACT");
   }
 }
