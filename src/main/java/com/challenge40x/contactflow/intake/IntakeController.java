@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 
 @RestController
 @RequestMapping("/api/intakes")
@@ -25,6 +26,12 @@ public class IntakeController {
     var status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
 
     return ResponseEntity.status(status).body(new IntakeResponse(result.intakeId()));
+  }
+
+  // 접수 내용 충돌을 HTTP 409 응답으로 변환
+  @ExceptionHandler(IntakeConflictException.class)
+  public ResponseEntity<Void> handleIntakeConflict() {
+    return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
   public record IntakeRequest(IntakeSource source, String externalId, String customerKey) {
