@@ -2,6 +2,7 @@ package com.challenge40x.contactflow.intake;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,11 +38,11 @@ public class IntakeController {
     return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
-  // 원본 접수 ID의 누락·빈 문자열·공백 입력 차단
+  // 접수 경로 필수 및 원본 접수 ID·고객 식별자 공백 검증
   public record IntakeRequest(
-      IntakeSource source,
+      @NotNull IntakeSource source,
       @NotBlank String externalId,
-      String customerKey
+      @NotBlank String customerKey
   ) {
   }
 
