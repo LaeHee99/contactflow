@@ -133,4 +133,33 @@ class IntakeApiTest {
             .assertThat(result.getResponse().getContentAsString())
             .isEqualTo(firstResponse.getContentAsString()));
   }
+
+  // 담당자가 지정한 기존 상담에 미연결 원본을 연결하고 재처리 결과 검증
+  @Test
+  void recoversIntakeByLinkingToExistingConsultation() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    String customerKey = "CUSTOMER-CROSS-SOURCE-001";
+
+    long websiteId = intakeService.receive(new ReceiveIntakeCommand(
+        IntakeSource.WEBSITE, "WEB-CROSS-SOURCE-001", customerKey)).intakeId();
+    long metaId = intakeService.receive(new ReceiveIntakeCommand(
+        IntakeSource.META, "META-CROSS-SOURCE-001", customerKey)).intakeId();
+
+    String existingLink = mockMvc.perform(put("/api/intakes/{intakeId}/consultation", metaId))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.consultationId").isNumber())
+        .andReturn()
+        .getResponse()
+        .getContentAsString();
+
+    for (int attempt = 0; attempt < 2; attempt++) {
+      mockMvc.perform(put("/api/intakes/{intakeId}/consultation", websiteId)
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(existingLink))
+          .andExpect(attempt == 0 ? status().isCreated() : status().isOk())
+          .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+              .content().json(existingLink));
+    }
+  }
 }
