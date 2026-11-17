@@ -1,5 +1,6 @@
 package com.challenge40x.contactflow.intake;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -177,6 +178,31 @@ class IntakeApiTest {
      """, Long.class, websiteId, metaId, consultationId)).isEqualTo(2L);
 
     assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
+  }
+
+  // 신규 상담의 첫 연락 작업이 대기 상태로 조회되는지 검증
+  @Test
+  void listsPendingFirstContactTaskForNewConsultation() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-CONTACT-TASK-001", "CUSTOMER-CONTACT-TASK-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+    long consultationId = jdbcTemplate.queryForObject("""
+        SELECT consultation_id FROM intake WHERE id = ?
+        """, Long.class, intakeId);
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].taskId").isNumber())
+        .andExpect(jsonPath("$[0].taskType").value("FIRST_CONTACT"))
+        .andExpect(jsonPath("$[0].status").value("PENDING"));
   }
 
   // 상담에 연결된 첫 연락 작업 수 조회
