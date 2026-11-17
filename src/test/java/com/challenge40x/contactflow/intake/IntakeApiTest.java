@@ -205,7 +205,7 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].status").value("PENDING"));
   }
 
-  // 첫 연락 작업의 담당자와 기본 기한 저장 및 재조회 검증
+  // 기본 연락 기한과 고객 희망 시각의 별도 저장 및 재조회 검증
   @Test
   void assignsFirstContactTaskWithDueAt() throws Exception {
     var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
@@ -233,7 +233,8 @@ class IntakeApiTest {
             .content("""
                 {
                   "assignee": "operator-001",
-                  "dueAt": "2026-11-19T02:00:00Z"
+                  "dueAt": "2026-11-19T02:00:00Z",
+                  "customerPreferredAt": "2026-11-19T05:00:00Z"
                 }
                 """))
         .andExpect(status().isNoContent());
@@ -241,7 +242,8 @@ class IntakeApiTest {
     mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].assignee").value("operator-001"))
-        .andExpect(jsonPath("$[0].dueAt").value("2026-11-19T02:00:00Z"));
+        .andExpect(jsonPath("$[0].dueAt").value("2026-11-19T02:00:00Z"))
+        .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"));
   }
 
   // 상담에 연결된 첫 연락 작업 수 조회
