@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -77,5 +78,25 @@ class IntakeServiceTest {
     } finally {
       executor.shutdownNow();
     }
+  }
+
+  // 동일 접수 키에 다른 고객 정보가 들어오면 충돌 처리 및 원본 보존 검증
+  @Test
+  void rejectsConflictingIntakeAndPreservesOriginal() {
+    var original = new ReceiveIntakeCommand(
+        IntakeSource.WEBSITE, "WEB-CONFLICT-001", "CUSTOMER-003");
+    var conflicting = new ReceiveIntakeCommand(
+        IntakeSource.WEBSITE, "WEB-CONFLICT-001", "CUSTOMER-004");
+
+    long originalId = intakeService.receive(original);
+
+    assertThatThrownBy(() -> intakeService.receive(conflicting))
+        .isInstanceOf(IntakeConflictException.class);
+
+    assertThat(jdbcTemplate.queryForObject("""
+        SELECT customer_key
+        FROM intake
+        WHERE id = ?
+        """, String.class, originalId)).isEqualTo("CUSTOMER-003");
   }
 }
