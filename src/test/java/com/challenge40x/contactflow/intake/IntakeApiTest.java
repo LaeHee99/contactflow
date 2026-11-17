@@ -76,4 +76,37 @@ class IntakeApiTest {
                 """))
         .andExpect(status().isBadRequest());
   }
+
+  // 접수 경로 누락 시 400 응답 검증
+  @Test
+  void rejectsMissingSource() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "externalId": "WEB-MISSING-SOURCE-001",
+                  "customerKey": "CUSTOMER-001"
+                }
+                """))
+        .andExpect(status().isBadRequest());
+  }
+
+  // 공백 고객 식별자 입력 시 400 응답 검증
+  @Test
+  void rejectsBlankCustomerKey() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "source": "WEBSITE",
+                  "externalId": "WEB-BLANK-CUSTOMER-001",
+                  "customerKey": "   "
+                }
+                """))
+        .andExpect(status().isBadRequest());
+  }
 }
