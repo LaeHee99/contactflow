@@ -28,12 +28,19 @@ public class ContactTaskQueryService {
 
     var tasks = contactTaskRepository.findAllByConsultation_IdOrderByIdAsc(consultationId)
         .stream()
-        .map(task -> new ContactTaskView(task.getId(), task.getTaskType(), task.getStatus()))
+        .map(task -> new ContactTaskView(
+            task.getId(),
+            task.getTaskType(),
+            task.getStatus(),
+            task.getAssignee(),
+            task.getDueAt() == null ? null : task.getDueAt().toString()))
         .toList();
 
     return Optional.of(tasks);
   }
 
-  public record ContactTaskView(long taskId, String taskType, String status) {
+  // 연락 작업 상태와 배정 정보 응답 형식
+  public record ContactTaskView(
+      long taskId, String taskType, String status, String assignee, String dueAt) {
   }
 }

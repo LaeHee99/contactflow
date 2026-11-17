@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 
 @Entity
 @Table(name = "contact_task")
@@ -32,6 +33,12 @@ public class ContactTask {
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false)
   private Status status;
+
+  @Column(name = "assignee")
+  private String assignee;
+
+  @Column(name = "due_at")
+  private Instant dueAt;
 
   protected ContactTask() {
   }
@@ -56,6 +63,21 @@ public class ContactTask {
 
   public String getStatus() {
     return status.name();
+  }
+
+  // 연락 작업 담당자와 기본 연락 기한 지정
+  void assign(String assignee, Instant dueAt) {
+    this.assignee = assignee;
+    this.dueAt = dueAt;
+  }
+
+  // 배정된 담당자와 기본 연락 기한 조회
+  String getAssignee() {
+    return assignee;
+  }
+
+  Instant getDueAt() {
+    return dueAt;
   }
 
   private enum Status {
