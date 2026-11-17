@@ -37,12 +37,6 @@ public class Intake {
   protected Intake() {
   }
 
-  public Intake(IntakeSource source, String externalId, String customerKey) {
-    this.source = source;
-    this.externalId = externalId;
-    this.customerKey = customerKey;
-  }
-
   public Long getId() {
     return id;
   }
