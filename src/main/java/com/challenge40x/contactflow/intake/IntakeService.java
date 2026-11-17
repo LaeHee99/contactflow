@@ -12,7 +12,7 @@ public class IntakeService {
     this.intakeRepository = intakeRepository;
   }
 
-  // 원본 접수 저장 후 신규 또는 기존 접수 ID 반환
+  // 신규 접수 저장 및 중복 접수의 기존 ID 반환
   @Transactional
   public long receive(ReceiveIntakeCommand command) {
     intakeRepository.insertIfAbsent(
