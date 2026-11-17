@@ -10,15 +10,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping("/api/intakes")
 public class IntakeController {
 
   private final IntakeService intakeService;
+  private final IntakeConsultationService intakeConsultationService;
 
-  public IntakeController(IntakeService intakeService) {
+  public IntakeController(
+      IntakeService intakeService,
+      IntakeConsultationService intakeConsultationService) {
     this.intakeService = intakeService;
+    this.intakeConsultationService = intakeConsultationService;
   }
 
   // 접수 결과에 따른 HTTP 상태와 접수 ID 반환
@@ -30,6 +36,21 @@ public class IntakeController {
     var status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
 
     return ResponseEntity.status(status).body(new IntakeResponse(result.intakeId()));
+  }
+
+  // 상담 연결 결과에 따라 201·200·404 응답 반환
+  @PutMapping("/{intakeId}/consultation")
+  public ResponseEntity<ConsultationLinkResponse> linkConsultation(
+      @PathVariable("intakeId") long intakeId) {
+    var result = intakeConsultationService.link(intakeId);
+    if (result.isEmpty()) {
+      return ResponseEntity.notFound().build();
+    }
+
+    var link = result.get();
+    var status = link.created() ? HttpStatus.CREATED : HttpStatus.OK;
+    return ResponseEntity.status(status)
+        .body(new ConsultationLinkResponse(link.consultationId()));
   }
 
   // 접수 내용 충돌을 HTTP 409 응답으로 변환
@@ -47,5 +68,8 @@ public class IntakeController {
   }
 
   public record IntakeResponse(long intakeId) {
+  }
+
+  public record ConsultationLinkResponse(long consultationId) {
   }
 }

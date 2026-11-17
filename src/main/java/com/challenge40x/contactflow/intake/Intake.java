@@ -1,5 +1,9 @@
 package com.challenge40x.contactflow.intake;
 
+import com.challenge40x.contactflow.consultation.Consultation;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -34,6 +38,10 @@ public class Intake {
   @Column(name = "customer_key", nullable = false)
   private String customerKey;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "consultation_id")
+  private Consultation consultation;
+
   protected Intake() {
   }
 
@@ -44,5 +52,15 @@ public class Intake {
   // 저장된 고객 식별자와 요청의 고객 식별자 비교
   boolean hasCustomerKey(String customerKey) {
     return this.customerKey.equals(customerKey);
+  }
+
+  // 원본 접수에 연결된 상담 조회
+  Consultation getConsultation() {
+    return consultation;
+  }
+
+  // 원본 접수에 상담 연결
+  void linkConsultation(Consultation consultation) {
+    this.consultation = consultation;
   }
 }
