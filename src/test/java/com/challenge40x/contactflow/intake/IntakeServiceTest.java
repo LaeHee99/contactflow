@@ -99,4 +99,24 @@ class IntakeServiceTest {
         WHERE id = ?
         """, String.class, originalId)).isEqualTo("CUSTOMER-003");
   }
+
+  // 같은 고객의 서로 다른 경로 접수 원본 보존 검증
+  @Test
+  void preservesSeparateIntakesForSameCustomer() {
+    var website = new ReceiveIntakeCommand(
+        IntakeSource.WEBSITE, "SHARED-001", "CUSTOMER-REAPPLY-001");
+    var meta = new ReceiveIntakeCommand(
+        IntakeSource.META, "SHARED-001", "CUSTOMER-REAPPLY-001");
+
+    long websiteId = intakeService.receive(website);
+    long metaId = intakeService.receive(meta);
+
+    assertThat(metaId).isNotEqualTo(websiteId);
+    assertThat(jdbcTemplate.queryForObject("""
+        SELECT COUNT(*)
+        FROM intake
+        WHERE customer_key = ? AND external_id = ?
+        """, Long.class, "CUSTOMER-REAPPLY-001", "SHARED-001"))
+        .isEqualTo(2L);
+  }
 }
