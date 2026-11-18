@@ -10,6 +10,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -579,6 +582,85 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].taskType").value("CALLBACK"))
         .andExpect(jsonPath("$[1].status").value("CANCELLED"))
         .andExpect(jsonPath("$[1].startedAt").doesNotExist());
+  }
+
+  // 동의 철회와 재연락 시작이 겹칠 때 상태와 시작 이력의 일관성 검증
+  @Test
+  void keepsCallbackConsistentWhenWithdrawalAndStartRace() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-CALLBACK-RACE-001", "CUSTOMER-CALLBACK-RACE-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+    String callbackPath = "/api/consultations/{consultationId}/callback";
+    Instant scheduledAt = Instant.now().minus(1, ChronoUnit.HOURS)
+        .truncatedTo(ChronoUnit.SECONDS);
+
+    mockMvc.perform(put(callbackPath, consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "consented": true,
+                  "reason": "고객이 재연락 요청",
+                  "scheduledAt": "%s",
+                  "channel": "PHONE",
+                  "assignee": "operator-001"
+                }
+                """.formatted(scheduledAt)))
+        .andExpect(status().isCreated());
+
+    var barrier = new CyclicBarrier(2);
+    var executor = Executors.newFixedThreadPool(2);
+    int startStatus;
+
+    try {
+      var withdrawal = executor.submit(() -> {
+        barrier.await(5, TimeUnit.SECONDS);
+        return mockMvc.perform(put(callbackPath + "/consent", consultationId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"consented": false}
+                    """))
+            .andReturn().getResponse().getStatus();
+      });
+
+      var start = executor.submit(() -> {
+        barrier.await(5, TimeUnit.SECONDS);
+        return mockMvc.perform(put(callbackPath + "/start", consultationId))
+            .andReturn().getResponse().getStatus();
+      });
+
+      assertThat(withdrawal.get(10, TimeUnit.SECONDS)).isEqualTo(204);
+      startStatus = start.get(10, TimeUnit.SECONDS);
+      assertThat(startStatus).isIn(204, 409);
+    } finally {
+      executor.shutdownNow();
+    }
+
+    assertThat(jdbcTemplate.queryForObject("""
+        SELECT callback_consented FROM contact_task
+        WHERE consultation_id = ? AND task_type = 'CALLBACK'
+        """, Boolean.class, consultationId)).isFalse();
+
+    var result = mockMvc.perform(get(
+            "/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk());
+
+    if (startStatus == 409) {
+      result.andExpect(jsonPath("$[1].status").value("CANCELLED"))
+          .andExpect(jsonPath("$[1].startedAt").doesNotExist());
+    } else {
+      result.andExpect(jsonPath("$[1].status").value("IN_PROGRESS"))
+          .andExpect(jsonPath("$[1].startedAt").exists());
+    }
   }
 
   // GA 인수와 실제 연락의 분리 및 미연락 시 확인 책임 유지 검증
