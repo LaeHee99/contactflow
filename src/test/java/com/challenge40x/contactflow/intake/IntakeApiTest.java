@@ -455,9 +455,9 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].startedAt").doesNotExist());
   }
 
-  // GA 인계 직후 인수·연락 상태와 인톡 확인 책임 검증
+  // GA 인수와 실제 연락의 분리 및 미연락 시 확인 책임 유지 검증
   @Test
-  void tracksHandoffBeforeGaAcceptanceAndContact() throws Exception {
+  void tracksGaAcceptanceAndContactSeparately() throws Exception {
     var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     var intakeService = webApplicationContext.getBean(IntakeService.class);
     var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
@@ -490,6 +490,41 @@ class IntakeApiTest {
         .andExpect(jsonPath("$.contactStatus").value("UNCONFIRMED"))
         .andExpect(jsonPath("$.followUpOwner").value("operator-001"))
         .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T09:00:00Z"));
+
+    // GA 인수 기록 후 실제 연락 미확인과 인톡 확인 책임 유지 검증
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/acceptance", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"acceptedAt": "2026-11-19T07:00:00Z"}
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/handoff", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.acceptanceStatus").value("ACCEPTED"))
+        .andExpect(jsonPath("$.acceptedAt").value("2026-11-19T07:00:00Z"))
+        .andExpect(jsonPath("$.contactStatus").value("UNCONFIRMED"))
+        .andExpect(jsonPath("$.followUpOwner").value("operator-001"))
+        .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T09:00:00Z"));
+
+    // 실제 연락 시각과 근거 기록 후 연락 확인 상태 검증
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/contact", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "contactedAt": "2026-11-19T08:00:00Z",
+                  "evidence": "GA 담당자가 후보자와 통화해 상담 일정을 확인함"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/handoff", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.acceptanceStatus").value("ACCEPTED"))
+        .andExpect(jsonPath("$.contactStatus").value("CONFIRMED"))
+        .andExpect(jsonPath("$.contactedAt").value("2026-11-19T08:00:00Z"))
+        .andExpect(jsonPath("$.contactEvidence")
+            .value("GA 담당자가 후보자와 통화해 상담 일정을 확인함"));
   }
 
   // 상담에 연결된 첫 연락 작업 수 조회
