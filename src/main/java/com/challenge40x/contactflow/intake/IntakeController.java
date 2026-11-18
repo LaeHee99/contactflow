@@ -1,5 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
+import com.challenge40x.contactflow.intake.IntakeService.IntakeSummary;
+import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 
 @RestController
 @RequestMapping("/api/intakes")
@@ -25,6 +28,12 @@ public class IntakeController {
       IntakeConsultationService intakeConsultationService) {
     this.intakeService = intakeService;
     this.intakeConsultationService = intakeConsultationService;
+  }
+
+  // linked=false 조건의 미연결 접수 목록 반환
+  @GetMapping(params = "linked=false")
+  public List<IntakeSummary> listUnlinkedIntakes() {
+    return intakeService.listUnlinked();
   }
 
   // 접수 결과에 따른 HTTP 상태와 접수 ID 반환

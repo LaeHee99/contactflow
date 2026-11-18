@@ -1,5 +1,6 @@
 package com.challenge40x.contactflow.intake;
 
+import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
@@ -31,4 +32,7 @@ public interface IntakeRepository extends JpaRepository<Intake, Long> {
 
   // 대상 상담에 같은 고객의 원본이 이미 연결되어 있는지 확인
   boolean existsByConsultation_IdAndCustomerKey(long consultationId, String customerKey);
+
+  // 상담에 연결되지 않은 원본을 접수 ID 순으로 조회
+  List<Intake> findAllByConsultationIsNullOrderByIdAsc();
 }

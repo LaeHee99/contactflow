@@ -49,6 +49,15 @@ public class Intake {
     return id;
   }
 
+  // 원본 접수의 경로와 외부 식별자 조회
+  IntakeSource getSource() {
+    return source;
+  }
+
+  String getExternalId() {
+    return externalId;
+  }
+
   // 저장된 고객 식별자와 요청의 고객 식별자 비교
   boolean hasCustomerKey(String customerKey) {
     return this.customerKey.equals(customerKey);
