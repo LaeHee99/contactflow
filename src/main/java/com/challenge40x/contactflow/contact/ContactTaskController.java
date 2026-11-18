@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,6 +68,12 @@ public class ContactTaskController {
         consultationId, taskId, request.completedAt(), request.evidence());
 
     return completed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+  }
+
+  // 연락 작업 상태 충돌을 HTTP 409 응답으로 변환
+  @ExceptionHandler(ContactTaskConflictException.class)
+  public ResponseEntity<Void> handleContactTaskConflict() {
+    return ResponseEntity.status(HttpStatus.CONFLICT).build();
   }
 
   // 연락 완료 시각과 근거 필수 입력

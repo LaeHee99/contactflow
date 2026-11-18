@@ -95,8 +95,12 @@ public class ContactTask {
     return customerPreferredAt;
   }
 
-  // 실제 연락 완료 시각과 근거 기록
+  // 담당자 배정 확인 후 실제 연락 완료 시각과 근거 기록
   void complete(Instant completedAt, String evidence) {
+    if (assignee == null || assignee.isBlank()) {
+      throw new ContactTaskConflictException("Contact task has no assignee");
+    }
+
     this.completedAt = completedAt;
     this.evidence = evidence;
     this.status = Status.COMPLETED;
