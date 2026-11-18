@@ -150,6 +150,19 @@ public class ContactTask {
     status = Status.IN_PROGRESS;
   }
 
+  // 시작된 재연락의 미응답 기록 및 동일 요청 재처리
+  void recordNoAnswer() {
+    if (status == Status.NO_ANSWER) {
+      return;
+    }
+
+    if (!isCallback() || status != Status.IN_PROGRESS) {
+      throw new ContactTaskConflictException("Callback must be started before recording an outcome");
+    }
+
+    status = Status.NO_ANSWER;
+  }
+
   // 모의 재연락 시작 시각 조회
   Instant getStartedAt() {
     return startedAt;
@@ -247,6 +260,7 @@ public class ContactTask {
   private enum Status {
     PENDING,
     IN_PROGRESS,
+    NO_ANSWER,
     COMPLETED,
     CANCELLED
   }

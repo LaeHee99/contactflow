@@ -77,6 +77,22 @@ public class CallbackService {
     return true;
   }
 
+  // 상담과 재연락 작업을 잠근 뒤 미응답 결과 저장
+  @Transactional
+  public boolean recordNoAnswer(long consultationId) {
+    if (consultationRepository.findByIdForUpdate(consultationId).isEmpty()) {
+      return false;
+    }
+
+    var callback = findCallbackForUpdate(consultationId);
+    if (callback.isEmpty()) {
+      return false;
+    }
+
+    callback.get().recordNoAnswer();
+    return true;
+  }
+
   // 상담에 연결된 재연락 작업 잠금 조회
   private Optional<ContactTask> findCallbackForUpdate(long consultationId) {
     return contactTaskRepository.findByConsultation_IdAndTaskType(

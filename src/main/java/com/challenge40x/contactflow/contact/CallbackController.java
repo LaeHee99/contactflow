@@ -3,6 +3,7 @@ package com.challenge40x.contactflow.contact;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,22 @@ public class CallbackController {
     return callbackService.start(consultationId)
         ? ResponseEntity.noContent().build()
         : ResponseEntity.notFound().build();
+  }
+
+  // 재연락 미응답 기록 성공 시 204, 대상 부재 시 404 반환
+  @PutMapping("/attempt")
+  public ResponseEntity<Void> recordCallbackAttempt(
+      @PathVariable("consultationId") long consultationId,
+      @Valid @RequestBody CallbackAttemptRequest request) {
+    return callbackService.recordNoAnswer(consultationId)
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.notFound().build();
+  }
+
+  // 재연락 미응답 결과 입력 검증
+  public record CallbackAttemptRequest(
+      @NotNull @Pattern(regexp = "NO_ANSWER") String outcome
+  ) {
   }
 
   // 재연락 동의 철회 입력
