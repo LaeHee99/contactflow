@@ -62,7 +62,7 @@ public class IntakeConsultationService {
       target = requestedConsultation.get();
     }
 
-    storedIntake.linkConsultation(target);
+    storedIntake.linkConsultation(target, targetConsultationId != null);
     return Optional.of(new LinkResult(target.getId(), true));
   }
 

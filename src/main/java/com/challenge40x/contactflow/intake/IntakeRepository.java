@@ -35,4 +35,7 @@ public interface IntakeRepository extends JpaRepository<Intake, Long> {
 
   // 상담에 연결되지 않은 원본을 접수 ID 순으로 조회
   List<Intake> findAllByConsultationIsNullOrderByIdAsc();
+
+  // 기존 상담 연결로 복구된 원본 접수 수 집계
+  long countByConsultation_IdAndRecoveredTrue(long consultationId);
 }

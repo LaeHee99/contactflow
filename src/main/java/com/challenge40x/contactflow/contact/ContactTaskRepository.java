@@ -5,6 +5,8 @@ import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ContactTaskRepository extends JpaRepository<ContactTask, Long> {
   // 상담별 연락 작업을 ID 오름차순으로 조회
@@ -17,4 +19,15 @@ public interface ContactTaskRepository extends JpaRepository<ContactTask, Long> 
   // 재연락 작업의 상태 변경을 위한 잠금 조회
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<ContactTask> findByConsultation_IdAndTaskType(long consultationId, ContactTask.TaskType taskType);
+
+  // 상담별 기본 기한 이내 완료된 첫 연락 작업 수 집계
+  @Query(value = """
+      SELECT COUNT(*)
+      FROM contact_task
+      WHERE consultation_id = :consultationId
+        AND task_type = 'FIRST_CONTACT'
+        AND status = 'COMPLETED'
+        AND completed_at <= due_at
+      """, nativeQuery = true)
+  long countOnTimeFirstContacts(@Param("consultationId") long consultationId);
 }

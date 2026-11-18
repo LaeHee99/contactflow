@@ -42,6 +42,9 @@ public class Intake {
   @JoinColumn(name = "consultation_id")
   private Consultation consultation;
 
+  @Column(name = "recovered")
+  private Boolean recovered;
+
   protected Intake() {
   }
 
@@ -73,8 +76,9 @@ public class Intake {
     return consultation;
   }
 
-  // 원본 접수에 상담 연결
-  void linkConsultation(Consultation consultation) {
+  // 상담 연결과 기존 상담을 통한 복구 여부 기록
+  void linkConsultation(Consultation consultation, boolean recovered) {
     this.consultation = consultation;
+    this.recovered = recovered;
   }
 }
