@@ -1,6 +1,8 @@
 package com.challenge40x.contactflow.contact;
 
 import com.challenge40x.contactflow.consultation.Consultation;
+import java.time.LocalDate;
+import java.util.Set;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -67,12 +69,16 @@ public class ContactTask {
   protected ContactTask() {
   }
 
-  // 신규 상담에 연결할 첫 연락 작업 생성
-  public static ContactTask firstContact(Consultation consultation) {
+  // 최초 접수 시각을 기준으로 첫 연락 작업과 기본 기한 생성
+  public static ContactTask firstContact(
+      Consultation consultation, Instant receivedAt, Set<LocalDate> holidays) {
     var task = new ContactTask();
     task.consultation = consultation;
     task.taskType = TaskType.FIRST_CONTACT;
     task.status = Status.PENDING;
+    if (receivedAt != null) {
+      task.dueAt = BusinessHours.firstContactDueAt(receivedAt, holidays);
+    }
     return task;
   }
 
@@ -162,7 +168,12 @@ public class ContactTask {
   // 담당자 지정 및 기본 기한과 고객 희망 시각 별도 저장
   void assign(String assignee, Instant dueAt, Instant customerPreferredAt) {
     this.assignee = assignee;
-    this.dueAt = dueAt;
+
+    // 배정 요청에 기한이 있을 때만 기존 기한 변경
+    if (dueAt != null) {
+      this.dueAt = dueAt;
+    }
+
     this.customerPreferredAt = customerPreferredAt;
   }
 

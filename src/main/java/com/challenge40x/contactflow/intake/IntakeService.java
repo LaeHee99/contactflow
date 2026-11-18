@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
 import java.util.List;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +17,14 @@ public class IntakeService {
   // 접수 저장, 내용 충돌 확인 및 신규 생성 여부 반환
   @Transactional
   public ReceiveResult receive(ReceiveIntakeCommand command) {
+    Instant receivedAt = command.receivedAt() == null
+        ? Instant.now()
+        : command.receivedAt();
     boolean created = intakeRepository.insertIfAbsent(
         command.source().name(),
         command.externalId(),
-        command.customerKey()) == 1;
+        command.customerKey(),
+        receivedAt) == 1;
 
     Intake storedIntake = intakeRepository
         .findBySourceAndExternalId(command.source(), command.externalId())

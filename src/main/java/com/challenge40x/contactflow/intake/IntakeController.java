@@ -2,6 +2,7 @@ package com.challenge40x.contactflow.intake;
 
 import com.challenge40x.contactflow.intake.IntakeService.IntakeSummary;
 import java.util.List;
+import java.time.Instant;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,9 +40,14 @@ public class IntakeController {
   // 접수 결과에 따른 HTTP 상태와 접수 ID 반환
   @PostMapping
   public ResponseEntity<IntakeResponse> createIntake(
-      @Valid @RequestBody IntakeRequest request) {
+      @Valid
+      @RequestBody
+      IntakeRequest request) {
     var result = intakeService.receive(new ReceiveIntakeCommand(
-        request.source(), request.externalId(), request.customerKey()));
+        request.source(),
+        request.externalId(),
+        request.customerKey(),
+        request.receivedAt()));
     var status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
 
     return ResponseEntity.status(status).body(new IntakeResponse(result.intakeId()));
@@ -51,7 +57,9 @@ public class IntakeController {
   @PutMapping("/{intakeId}/consultation")
   public ResponseEntity<ConsultationLinkResponse> linkConsultation(
       @PathVariable("intakeId") long intakeId,
-      @Valid @RequestBody(required = false) ConsultationLinkRequest request) {
+      @Valid
+      @RequestBody(required = false)
+      ConsultationLinkRequest request) {
     Long targetConsultationId = request == null ? null : request.consultationId();
     var result = intakeConsultationService.link(intakeId, targetConsultationId);
     if (result.isEmpty()) {
@@ -74,7 +82,8 @@ public class IntakeController {
   public record IntakeRequest(
       @NotNull IntakeSource source,
       @NotBlank String externalId,
-      @NotBlank String customerKey
+      @NotBlank String customerKey,
+      Instant receivedAt
   ) {
   }
 

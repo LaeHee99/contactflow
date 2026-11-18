@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.intake;
 
 import com.challenge40x.contactflow.consultation.Consultation;
+import java.time.Instant;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -38,6 +39,9 @@ public class Intake {
   @Column(name = "customer_key", nullable = false)
   private String customerKey;
 
+  @Column(name = "received_at")
+  private Instant receivedAt;
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "consultation_id")
   private Consultation consultation;
@@ -69,6 +73,11 @@ public class Intake {
   // 연결 대상 상담의 고객 일치 확인에 사용할 식별자 반환
   String getCustomerKey() {
     return customerKey;
+  }
+
+  // 최초 원본 접수 시각 조회
+  Instant getReceivedAt() {
+    return receivedAt;
   }
 
   // 원본 접수에 연결된 상담 조회
