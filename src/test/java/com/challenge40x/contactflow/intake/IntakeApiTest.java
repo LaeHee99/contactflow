@@ -895,6 +895,24 @@ class IntakeApiTest {
             .value("GA 담당자에게 후보자 연락 여부 재확인 요청"))
         .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T08:00:00Z"));
 
+    // GA 미수락과 미연락 확인 이력 및 각 기한 변경 전후 값 보존 검증
+    mockMvc.perform(get(
+            "/api/consultations/{consultationId}/handoff/follow-up/history",
+            consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[0].reason").value("GA_NOT_ACCEPTED"))
+        .andExpect(jsonPath("$[0].followUpOwner").value("operator-001"))
+        .andExpect(jsonPath("$[0].checkedAt").value("2026-11-19T02:15:00Z"))
+        .andExpect(jsonPath("$[0].previousNextCheckAt").value("2026-11-19T02:00:00Z"))
+        .andExpect(jsonPath("$[0].nextCheckAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[0].note").value("GA 담당자에게 인수 여부 재확인 요청"))
+        .andExpect(jsonPath("$[1].reason").value("GA_CONTACT_UNCONFIRMED"))
+        .andExpect(jsonPath("$[1].checkedAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[1].previousNextCheckAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[1].nextCheckAt").value("2026-11-19T08:00:00Z"))
+        .andExpect(jsonPath("$[1].note").value("GA 담당자에게 후보자 연락 여부 재확인 요청"));
+
     String overduePath = "/api/consultations/handoffs";
     String matchingHandoff = "$[?(@.consultationId == " + consultationId + ")]";
 
