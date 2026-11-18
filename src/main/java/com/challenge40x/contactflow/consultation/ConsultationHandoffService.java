@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.consultation;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +81,30 @@ public class ConsultationHandoffService {
               consultation.getLastFollowUpReason(),
               consultation.getLastFollowUpNote());
         });
+  }
+
+  // 기한에 도달한 인계 건의 미수락·미연락 사유와 확인 책임 조회
+  @Transactional(readOnly = true)
+  public List<DueHandoffView> findDueHandoffs(Instant dueBy) {
+    return consultationRepository.findHandoffsDueBy(dueBy)
+        .stream()
+        .map(consultation -> new DueHandoffView(
+            consultation.getId(),
+            consultation.getGaAssignee(),
+            consultation.getGaAcceptedAt() == null
+                ? "GA_NOT_ACCEPTED" : "GA_CONTACT_UNCONFIRMED",
+            consultation.getFollowUpOwner(),
+            consultation.getNextCheckAt().toString()))
+        .toList();
+  }
+
+  public record DueHandoffView(
+      long consultationId,
+      String gaAssignee,
+      String reason,
+      String followUpOwner,
+      String nextCheckAt
+  ) {
   }
 
   public record HandoffView(
