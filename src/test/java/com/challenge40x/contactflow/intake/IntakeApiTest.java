@@ -246,7 +246,7 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"));
   }
 
-  // 배정된 연락 작업의 완료 상태·시각·근거 저장 검증
+  // 연락 완료 기록 저장 및 동일 재전송 허용·다른 내용 덮어쓰기 차단 검증
   @Test
   void completesAssignedContactTaskWithEvidence() throws Exception {
     var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
@@ -290,6 +290,32 @@ class IntakeApiTest {
                 }
                 """))
         .andExpect(status().isNoContent());
+
+    // 동일한 완료 요청 재전송 허용 검증
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/completion",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "completedAt": "2026-11-18T01:30:00Z",
+                  "evidence": "전화 연결 후 고객에게 상담 절차 안내 완료"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    // 완료된 작업의 다른 시각·근거 덮어쓰기 거부 검증
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/completion",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "completedAt": "2026-11-18T03:00:00Z",
+                  "evidence": "변경된 완료 기록"
+                }
+                """))
+        .andExpect(status().isConflict());
 
     mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
         .andExpect(status().isOk())
