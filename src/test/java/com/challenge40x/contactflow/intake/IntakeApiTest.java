@@ -566,9 +566,9 @@ class IntakeApiTest {
             .value("GA 담당자가 후보자와 통화해 상담 일정을 확인함"));
   }
 
-  // GA 미수락 건의 확인 결과와 다음 확인 기한 기록 검증
+  // GA 미수락과 인수 후 미연락을 구분하고 다음 확인 기한 갱신 검증
   @Test
-  void recordsFollowUpForUnacceptedGaHandoff() throws Exception {
+  void distinguishesUnacceptedAndUncontactedGaFollowUps() throws Exception {
     var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     var intakeService = webApplicationContext.getBean(IntakeService.class);
     var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
@@ -614,6 +614,37 @@ class IntakeApiTest {
         .andExpect(jsonPath("$.lastFollowUpReason").value("GA_NOT_ACCEPTED"))
         .andExpect(jsonPath("$.lastFollowUpNote").value("GA 담당자에게 인수 여부 재확인 요청"))
         .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T05:00:00Z"));
+
+    // GA 인수 시각 등록 후 실제 연락 미확인 상태 유지
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/acceptance", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"acceptedAt": "2026-11-19T03:00:00Z"}
+                """))
+        .andExpect(status().isNoContent());
+
+    // 다음 확인 기한 정각에 GA 미연락 후속 조치 기록
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/follow-up", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "checkedAt": "2026-11-19T05:00:00Z",
+                  "nextCheckAt": "2026-11-19T08:00:00Z",
+                  "note": "GA 담당자에게 후보자 연락 여부 재확인 요청"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/handoff", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.acceptanceStatus").value("ACCEPTED"))
+        .andExpect(jsonPath("$.contactStatus").value("UNCONFIRMED"))
+        .andExpect(jsonPath("$.followUpOwner").value("operator-001"))
+        .andExpect(jsonPath("$.lastCheckedAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$.lastFollowUpReason").value("GA_CONTACT_UNCONFIRMED"))
+        .andExpect(jsonPath("$.lastFollowUpNote")
+            .value("GA 담당자에게 후보자 연락 여부 재확인 요청"))
+        .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T08:00:00Z"));
   }
 
   // 미연결 원본 조회 및 상담 연결 후 목록 제외 검증
