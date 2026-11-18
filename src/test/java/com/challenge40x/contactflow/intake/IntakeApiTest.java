@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -403,7 +405,7 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].evidence").doesNotExist());
   }
 
-  // 재연락 동의와 희망 시각을 받은 상담에 대기 작업 생성 검증
+  // 동의가 있는 재연락 예약 생성 및 예약 전 시작 차단 검증
   @Test
   void schedulesCallbackWithConsent() throws Exception {
     var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
@@ -420,18 +422,23 @@ class IntakeApiTest {
     long consultationId = jdbcTemplate.queryForObject(
         "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
 
+    Instant scheduledAt = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+
     mockMvc.perform(put("/api/consultations/{consultationId}/callback", consultationId)
             .contentType(MediaType.APPLICATION_JSON)
             .content("""
                 {
                   "consented": true,
                   "reason": "고객이 저녁에 다시 연락해 달라고 요청",
-                  "scheduledAt": "2026-12-01T09:00:00Z",
+                  "scheduledAt": "%s",
                   "channel": "PHONE",
                   "assignee": "operator-001"
                 }
-                """))
+                """.formatted(scheduledAt)))
         .andExpect(status().isCreated());
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/callback/start", consultationId))
+        .andExpect(status().isConflict());
 
     mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
         .andExpect(status().isOk())
@@ -439,7 +446,8 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].taskType").value("FIRST_CONTACT"))
         .andExpect(jsonPath("$[1].taskType").value("CALLBACK"))
         .andExpect(jsonPath("$[1].status").value("PENDING"))
-        .andExpect(jsonPath("$[1].scheduledAt").value("2026-12-01T09:00:00Z"))
+        .andExpect(jsonPath("$[1].scheduledAt").value(scheduledAt.toString()))
+        .andExpect(jsonPath("$[1].startedAt").doesNotExist())
         .andExpect(jsonPath("$[1].channel").value("PHONE"))
         .andExpect(jsonPath("$[1].assignee").value("operator-001"));
   }
