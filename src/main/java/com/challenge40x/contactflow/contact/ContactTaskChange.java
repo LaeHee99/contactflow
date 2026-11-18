@@ -27,6 +27,15 @@ public class ContactTaskChange {
   private String newAssignee;
   private Instant previousEffectiveDueAt;
   private Instant newEffectiveDueAt;
+
+  @Column(length = 32)
+  private String previousChannel;
+
+  @Column(length = 32)
+  private String newChannel;
+
+  private Instant previousScheduledAt;
+  private Instant newScheduledAt;
   private String changedBy;
 
   @Column(length = 1000)
@@ -50,5 +59,26 @@ public class ContactTaskChange {
     this.changedBy = changedBy;
     this.changeReason = changeReason;
     this.changedAt = changedAt;
+  }
+
+  // 재연락 예약의 채널·시각·담당자 변경 전후 기록 생성
+  static ContactTaskChange callbackChanged(
+      ContactTask task, CallbackSnapshot before, CallbackSnapshot after,
+      String changedBy, String changeReason, Instant changedAt) {
+    var change = new ContactTaskChange(
+        task, before.assignee(), task.getEffectiveDueAt(),
+        changedBy, changeReason, changedAt);
+    change.previousChannel = before.channel();
+    change.newChannel = after.channel();
+    change.previousScheduledAt = before.scheduledAt();
+    change.newScheduledAt = after.scheduledAt();
+    return change;
+  }
+
+  // 현재 재연락 예약의 변경 비교용 값 보관
+  record CallbackSnapshot(String assignee, String channel, Instant scheduledAt) {
+    static CallbackSnapshot from(ContactTask task) {
+      return new CallbackSnapshot(task.getAssignee(), task.getChannel(), task.getScheduledAt());
+    }
   }
 }

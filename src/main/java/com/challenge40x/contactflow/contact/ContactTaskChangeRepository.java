@@ -14,6 +14,10 @@ public interface ContactTaskChangeRepository extends JpaRepository<ContactTaskCh
     String getNewAssignee();
     Instant getPreviousEffectiveDueAt();
     Instant getNewEffectiveDueAt();
+    String getPreviousChannel();
+    String getNewChannel();
+    Instant getPreviousScheduledAt();
+    Instant getNewScheduledAt();
     String getChangedBy();
     String getChangeReason();
     Instant getChangedAt();

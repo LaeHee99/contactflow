@@ -1,5 +1,6 @@
 package com.challenge40x.contactflow.contact;
 
+import com.challenge40x.contactflow.contact.ContactTaskChange.CallbackSnapshot;
 import com.challenge40x.contactflow.consultation.ConsultationRepository;
 import java.time.Instant;
 import java.util.Optional;
@@ -11,19 +12,28 @@ public class CallbackService {
 
   private final ConsultationRepository consultationRepository;
   private final ContactTaskRepository contactTaskRepository;
+  private final ContactTaskChangeRepository contactTaskChangeRepository;
 
   public CallbackService(
       ConsultationRepository consultationRepository,
-      ContactTaskRepository contactTaskRepository) {
+      ContactTaskRepository contactTaskRepository,
+      ContactTaskChangeRepository contactTaskChangeRepository) {
     this.consultationRepository = consultationRepository;
     this.contactTaskRepository = contactTaskRepository;
+    this.contactTaskChangeRepository = contactTaskChangeRepository;
   }
 
   // 동의 확인 후 재연락 작업 생성 또는 기존 예약 갱신
   @Transactional
   public Optional<Boolean> schedule(
-      long consultationId, boolean consented, String reason, Instant scheduledAt,
-      String channel, String assignee) {
+      long consultationId,
+      boolean consented,
+      String reason,
+      Instant scheduledAt,
+      String channel,
+      String assignee,
+      String changedBy,
+      String changeReason) {
     var consultation = consultationRepository.findByIdForUpdate(consultationId);
     if (consultation.isEmpty()) {
       return Optional.empty();
@@ -36,7 +46,17 @@ public class CallbackService {
     var existing = findCallbackForUpdate(consultationId);
 
     if (existing.isPresent()) {
-      existing.get().scheduleCallback(reason, scheduledAt, channel, assignee);
+      ContactTask task = existing.get();
+      var before = CallbackSnapshot.from(task);
+      task.scheduleCallback(reason, scheduledAt, channel, assignee);
+      var after = CallbackSnapshot.from(task);
+
+      // 기존 예약의 값이 바뀐 경우에만 변경 이력 저장
+      if (!before.equals(after)) {
+        contactTaskChangeRepository.save(ContactTaskChange.callbackChanged(
+            task, before, after, changedBy, changeReason, Instant.now()));
+      }
+
       return Optional.of(false);
     }
 

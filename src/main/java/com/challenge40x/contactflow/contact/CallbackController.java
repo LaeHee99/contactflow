@@ -31,8 +31,15 @@ public class CallbackController {
       @PathVariable("consultationId") long consultationId,
       @Valid @RequestBody CallbackRequest request) {
     var result = callbackService.schedule(
-        consultationId, request.consented(), request.reason(), request.scheduledAt(),
-        request.channel(), request.assignee());
+        consultationId,
+        request.consented(),
+        request.reason(),
+        request.scheduledAt(),
+        request.channel(),
+        request.assignee(),
+        request.changedBy(),
+        request.changeReason()
+    );
 
     if (result.isEmpty()) {
       return ResponseEntity.notFound().build();
@@ -96,7 +103,9 @@ public class CallbackController {
       @NotBlank @Size(max = 1000) String reason,
       @NotNull Instant scheduledAt,
       @NotBlank @Size(max = 32) String channel,
-      @NotBlank @Size(max = 255) String assignee
+      @NotBlank @Size(max = 255) String assignee,
+      @Size(max = 255) String changedBy,
+      @Size(max = 1000) String changeReason
   ) {
   }
 }
