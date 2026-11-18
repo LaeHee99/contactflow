@@ -863,7 +863,8 @@ class IntakeApiTest {
         """);
     try {
       assertThatThrownBy(() ->
-          mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)))
+          mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)
+              .param("recovery", "true")))
           .hasStackTraceContaining("reject_first_contact_for_recovery_test");
     } finally {
       jdbcTemplate.execute("""
@@ -877,9 +878,11 @@ class IntakeApiTest {
     assertThat(jdbcTemplate.queryForObject(
         "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId)).isNull();
 
-    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)
+            .param("recovery", "true"))
         .andExpect(status().isCreated());
-    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)
+            .param("recovery", "true"))
         .andExpect(status().isOk());
 
     long consultationId = jdbcTemplate.queryForObject(
@@ -888,6 +891,12 @@ class IntakeApiTest {
     assertThat(jdbcTemplate.queryForObject(
         "SELECT COUNT(*) FROM consultation", Long.class)).isEqualTo(consultationsBefore + 1);
     assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
+
+    // 신규 상담으로 복구한 원본도 반복 요청과 무관하게 한 건으로 집계
+    mockMvc.perform(get("/api/consultations/{consultationId}/metrics", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.recoveredIntakeCount").value(1))
+        .andExpect(jsonPath("$.onTimeFirstContactCount").value(0));
   }
 
   // 기한 생략 시 금요일 접수의 첫 안내 기한을 월요일로 계산
