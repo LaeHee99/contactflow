@@ -959,6 +959,20 @@ class IntakeApiTest {
     assertThat(jdbcTemplate.queryForObject(
         "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId)).isNull();
 
+    String confirmationPath = "/api/intakes/{intakeId}/recovery-confirmation";
+    String confirmation = """
+        {
+          "confirmedBy": "operator-001",
+          "confirmedAt": "2026-11-18T10:00:00Z"
+        }
+        """;
+
+    // 상담 연결이 실패한 원본의 복구 확인 거부 검증
+    mockMvc.perform(put(confirmationPath, intakeId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(confirmation))
+        .andExpect(status().isConflict());
+
     mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)
             .param("recovery", "true"))
         .andExpect(status().isCreated());
@@ -978,6 +992,17 @@ class IntakeApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.recoveredIntakeCount").value(1))
         .andExpect(jsonPath("$.onTimeFirstContactCount").value(0));
+
+    // 복구 성공 후 담당자 확인 저장 및 재조회 검증
+    mockMvc.perform(put(confirmationPath, intakeId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(confirmation))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get(confirmationPath, intakeId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.confirmedBy").value("operator-001"))
+        .andExpect(jsonPath("$.confirmedAt").value("2026-11-18T10:00:00Z"));
   }
 
   // 기한 생략 시 금요일 접수의 첫 안내 기한을 월요일로 계산
