@@ -295,6 +295,43 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].agreedContactAt").value("2026-11-19T05:00:00Z"))
         .andExpect(jsonPath("$[0].effectiveDueAt").value("2026-11-19T05:00:00Z"))
         .andExpect(jsonPath("$[0].needsTimeConfirmation").value(false));
+
+    // 담당자 배정 직후 수락 대기 상태 검증
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].assignmentStatus").value("PENDING_ACCEPTANCE"))
+        .andExpect(jsonPath("$[0].acceptedAt").doesNotExist());
+
+    String acceptancePath =
+        "/api/consultations/{consultationId}/contact-tasks/{taskId}/acceptance";
+
+    // 배정되지 않은 담당자의 수락 요청 거부 검증
+    mockMvc.perform(put(acceptancePath, consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "assignee": "operator-002",
+                  "acceptedAt": "2026-11-19T01:00:00Z"
+                }
+                """))
+        .andExpect(status().isConflict());
+
+    // 배정된 담당자의 수락 시각 저장 검증
+    mockMvc.perform(put(acceptancePath, consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "assignee": "operator-001",
+                  "acceptedAt": "2026-11-19T01:00:00Z"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].assignmentStatus").value("ACCEPTED"))
+        .andExpect(jsonPath("$[0].acceptedAt").value("2026-11-19T01:00:00Z"))
+        .andExpect(jsonPath("$[0].status").value("PENDING"));
   }
 
   // 연락 완료 기록 저장 및 동일 재전송 허용·다른 내용 덮어쓰기 차단 검증
