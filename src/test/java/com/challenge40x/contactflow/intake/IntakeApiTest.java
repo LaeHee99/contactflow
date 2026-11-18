@@ -246,11 +246,37 @@ class IntakeApiTest {
                 """))
         .andExpect(status().isNoContent());
 
+    // 고객 희망 시각이 더 늦을 때 합의 전 기본 기한 유지 및 확인 필요 표시
     mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].assignee").value("operator-001"))
         .andExpect(jsonPath("$[0].dueAt").value("2026-11-19T02:00:00Z"))
-        .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"));
+        .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[0].effectiveDueAt").value("2026-11-19T02:00:00Z"))
+        .andExpect(jsonPath("$[0].needsTimeConfirmation").value(true));
+
+    // 담당자가 고객과 합의한 연락 시각 기록
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/assignment",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "assignee": "operator-001",
+                  "customerPreferredAt": "2026-11-19T05:00:00Z",
+                  "agreedContactAt": "2026-11-19T05:00:00Z"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    // 합의 후 원래 기한과 희망 시각 보존 및 적용 기한 변경 검증
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].dueAt").value("2026-11-19T02:00:00Z"))
+        .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[0].agreedContactAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[0].effectiveDueAt").value("2026-11-19T05:00:00Z"))
+        .andExpect(jsonPath("$[0].needsTimeConfirmation").value(false));
   }
 
   // 연락 완료 기록 저장 및 동일 재전송 허용·다른 내용 덮어쓰기 차단 검증
