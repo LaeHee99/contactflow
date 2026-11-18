@@ -455,6 +455,43 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].startedAt").doesNotExist());
   }
 
+  // GA 인계 직후 인수·연락 상태와 인톡 확인 책임 검증
+  @Test
+  void tracksHandoffBeforeGaAcceptanceAndContact() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-HANDOFF-001", "CUSTOMER-HANDOFF-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "gaAssignee": "ga-operator-001",
+                  "followUpOwner": "operator-001",
+                  "nextCheckAt": "2026-11-19T09:00:00Z"
+                }
+                """))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/handoff", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.gaAssignee").value("ga-operator-001"))
+        .andExpect(jsonPath("$.acceptanceStatus").value("PENDING"))
+        .andExpect(jsonPath("$.contactStatus").value("UNCONFIRMED"))
+        .andExpect(jsonPath("$.followUpOwner").value("operator-001"))
+        .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T09:00:00Z"));
+  }
+
   // 상담에 연결된 첫 연락 작업 수 조회
   private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
     return jdbcTemplate.queryForObject("""
