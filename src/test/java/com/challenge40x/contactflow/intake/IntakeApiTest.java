@@ -169,6 +169,19 @@ class IntakeApiTest {
 
     assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
 
+    // 미연결 원본과 같은 고객의 대기 중인 첫 연락 작업을 상담 후보로 조회
+    mockMvc.perform(get("/api/intakes/{intakeId}/consultation-candidates", websiteId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].consultationId")
+            .value(org.hamcrest.Matchers.is(consultationId), Long.class))
+        .andExpect(jsonPath("$[0].firstContactTaskId").isNumber())
+        .andExpect(jsonPath("$[0].firstContactStatus").value("PENDING"));
+
+    // 후보 조회만으로 원본이 상담에 연결되지 않는지 검증
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, websiteId)).isNull();
+
     for (int attempt = 0; attempt < 2; attempt++) {
       mockMvc.perform(put("/api/intakes/{intakeId}/consultation", websiteId)
               .contentType(MediaType.APPLICATION_JSON)
