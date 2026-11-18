@@ -43,6 +43,12 @@ public class ContactTask {
   @Column(name = "customer_preferred_at")
   private Instant customerPreferredAt;
 
+  @Column(name = "completed_at")
+  private Instant completedAt;
+
+  @Column(name = "evidence", length = 1000)
+  private String evidence;
+
   protected ContactTask() {
   }
 
@@ -89,8 +95,26 @@ public class ContactTask {
     return customerPreferredAt;
   }
 
+  // 실제 연락 완료 시각과 근거 기록
+  void complete(Instant completedAt, String evidence) {
+    this.completedAt = completedAt;
+    this.evidence = evidence;
+    this.status = Status.COMPLETED;
+  }
+
+  // 실제 연락 완료 시각 조회
+  Instant getCompletedAt() {
+    return completedAt;
+  }
+
+  // 실제 연락 완료 근거 조회
+  String getEvidence() {
+    return evidence;
+  }
+
   private enum Status {
-    PENDING
+    PENDING,
+    COMPLETED
   }
 
   private enum TaskType {

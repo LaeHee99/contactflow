@@ -34,20 +34,24 @@ public class ContactTaskQueryService {
             task.getStatus(),
             task.getAssignee(),
             task.getDueAt() == null ? null : task.getDueAt().toString(),
-            task.getCustomerPreferredAt() == null ? null : task.getCustomerPreferredAt().toString()))
+            task.getCustomerPreferredAt() == null ? null : task.getCustomerPreferredAt().toString(),
+            task.getCompletedAt() == null ? null : task.getCompletedAt().toString(),
+            task.getEvidence()))
         .toList();
 
     return Optional.of(tasks);
   }
 
-  // 연락 작업 상태와 서로 구분된 기본 기한·고객 희망 시각 반환
+  // 연락 작업의 상태·배정 정보·완료 근거 반환
   public record ContactTaskView(
       long taskId,
       String taskType,
       String status,
       String assignee,
       String dueAt,
-      String customerPreferredAt
+      String customerPreferredAt,
+      String completedAt,
+      String evidence
   ) {
   }
 }

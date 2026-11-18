@@ -4,6 +4,7 @@ import com.challenge40x.contactflow.contact.ContactTaskQueryService.ContactTaskV
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +21,15 @@ public class ContactTaskController {
 
   private final ContactTaskQueryService contactTaskQueryService;
   private final ContactTaskAssignmentService contactTaskAssignmentService;
+  private final ContactTaskCompletionService contactTaskCompletionService;
 
   public ContactTaskController(
       ContactTaskQueryService contactTaskQueryService,
-      ContactTaskAssignmentService contactTaskAssignmentService) {
+      ContactTaskAssignmentService contactTaskAssignmentService,
+      ContactTaskCompletionService contactTaskCompletionService) {
     this.contactTaskQueryService = contactTaskQueryService;
     this.contactTaskAssignmentService = contactTaskAssignmentService;
+    this.contactTaskCompletionService = contactTaskCompletionService;
   }
 
   // 상담별 연락 작업 목록 반환 및 미등록 상담에 404 응답
@@ -50,6 +54,25 @@ public class ContactTaskController {
     );
 
     return assigned ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+  }
+
+  // 연락 완료 기록 저장 후 204 또는 대상 작업 부재 시 404 반환
+  @PutMapping("/{taskId}/completion")
+  public ResponseEntity<Void> completeContactTask(
+      @PathVariable("consultationId") long consultationId,
+      @PathVariable("taskId") long taskId,
+      @Valid @RequestBody CompletionRequest request) {
+    boolean completed = contactTaskCompletionService.complete(
+        consultationId, taskId, request.completedAt(), request.evidence());
+
+    return completed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+  }
+
+  // 연락 완료 시각과 근거 필수 입력
+  public record CompletionRequest(
+      @NotNull Instant completedAt,
+      @NotBlank @Size(max = 1000) String evidence
+  ) {
   }
 
   // 담당자와 기본 기한 필수 입력 및 고객 희망 시각 선택 입력
