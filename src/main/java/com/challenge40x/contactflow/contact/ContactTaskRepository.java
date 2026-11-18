@@ -13,4 +13,8 @@ public interface ContactTaskRepository extends JpaRepository<ContactTask, Long> 
   // 배정·완료 요청이 겹칠 때 같은 작업을 순서대로 처리하도록 잠금 조회
   @Lock(LockModeType.PESSIMISTIC_WRITE)
   Optional<ContactTask> findByIdAndConsultation_Id(long taskId, long consultationId);
+
+  // 재연락 작업의 상태 변경을 위한 잠금 조회
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  Optional<ContactTask> findByConsultation_IdAndTaskType(long consultationId, ContactTask.TaskType taskType);
 }

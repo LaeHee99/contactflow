@@ -61,6 +61,9 @@ public class ContactTask {
   @Column(name = "channel", length = 32)
   private String channel;
 
+  @Column(name = "started_at")
+  private Instant startedAt;
+
   protected ContactTask() {
   }
 
@@ -112,6 +115,37 @@ public class ContactTask {
     return channel;
   }
 
+  // 동의 철회 기록 및 아직 시작하지 않은 재연락 작업 취소
+  void withdrawCallbackConsent() {
+    callbackConsented = false;
+    if (status == Status.PENDING) {
+      status = Status.CANCELLED;
+    }
+  }
+
+  // 최신 동의와 작업 상태 확인 후 모의 재연락 시작 기록
+  void startCallback(Instant now) {
+    if (!Boolean.TRUE.equals(callbackConsented)) {
+      throw new ContactTaskConflictException("Callback consent is required");
+    }
+
+    if (status == Status.IN_PROGRESS) {
+      return;
+    }
+
+    if (status != Status.PENDING) {
+      throw new ContactTaskConflictException("Callback task cannot be started");
+    }
+
+    startedAt = now;
+    status = Status.IN_PROGRESS;
+  }
+
+  // 모의 재연락 시작 시각 조회
+  Instant getStartedAt() {
+    return startedAt;
+  }
+
   // 연락 작업의 조회 응답에 사용할 정보 반환
   public long getId() {
     return id;
@@ -156,6 +190,10 @@ public class ContactTask {
       throw new ContactTaskConflictException("Contact task already has a different completion");
     }
 
+    if (isCallback() && status != Status.IN_PROGRESS) {
+      throw new ContactTaskConflictException("Callback must be started before completion");
+    }
+
     if (assignee == null || assignee.isBlank()) {
       throw new ContactTaskConflictException("Contact task has no assignee");
     }
@@ -177,10 +215,12 @@ public class ContactTask {
 
   private enum Status {
     PENDING,
-    COMPLETED
+    IN_PROGRESS,
+    COMPLETED,
+    CANCELLED
   }
 
-  private enum TaskType {
+  enum TaskType {
     FIRST_CONTACT,
     CALLBACK
   }

@@ -38,7 +38,8 @@ public class ContactTaskQueryService {
             task.getCompletedAt() == null ? null : task.getCompletedAt().toString(),
             task.getEvidence(),
             task.getScheduledAt() == null ? null : task.getScheduledAt().toString(),
-            task.getChannel()))
+            task.getChannel(),
+            task.getStartedAt() == null ? null : task.getStartedAt().toString()))
         .toList();
 
     return Optional.of(tasks);
@@ -55,7 +56,8 @@ public class ContactTaskQueryService {
       String completedAt,
       String evidence,
       String scheduledAt,
-      String channel
+      String channel,
+      String startedAt
   ) {
   }
 }

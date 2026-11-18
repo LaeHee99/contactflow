@@ -40,6 +40,33 @@ public class CallbackController {
     return ResponseEntity.status(result.get() ? HttpStatus.CREATED : HttpStatus.OK).build();
   }
 
+  // 철회 요청 처리 및 예약 부재 시 404 반환
+  @PutMapping("/consent")
+  public ResponseEntity<Void> withdrawConsent(
+      @PathVariable("consultationId") long consultationId,
+      @Valid @RequestBody ConsentRequest request) {
+    if (request.consented()) {
+      return ResponseEntity.badRequest().build();
+    }
+
+    return callbackService.withdrawConsent(consultationId)
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.notFound().build();
+  }
+
+  // 모의 연락 시작 성공 시 204 반환
+  @PutMapping("/start")
+  public ResponseEntity<Void> startCallback(
+      @PathVariable("consultationId") long consultationId) {
+    return callbackService.start(consultationId)
+        ? ResponseEntity.noContent().build()
+        : ResponseEntity.notFound().build();
+  }
+
+  // 재연락 동의 철회 입력
+  public record ConsentRequest(@NotNull Boolean consented) {
+  }
+
   // 재연락 동의 또는 작업 상태 충돌 응답
   @ExceptionHandler(ContactTaskConflictException.class)
   public ResponseEntity<Void> handleCallbackConflict() {
