@@ -2,8 +2,10 @@ package com.challenge40x.contactflow.intake;
 
 import com.challenge40x.contactflow.intake.IntakeConsultationService.ConsultationCandidate;
 import com.challenge40x.contactflow.intake.IntakeService.IntakeSummary;
+import com.challenge40x.contactflow.intake.IntakeConsultationService.RecoveryConfirmation;
 import java.util.List;
 import java.time.Instant;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -78,6 +80,31 @@ public class IntakeController {
     var status = link.created() ? HttpStatus.CREATED : HttpStatus.OK;
     return ResponseEntity.status(status)
         .body(new ConsultationLinkResponse(link.consultationId()));
+  }
+
+  // 복구 확인 저장 성공 시 204, 원본 부재 시 404 반환
+  @PutMapping("/{intakeId}/recovery-confirmation")
+  public ResponseEntity<Void> confirmRecovery(
+      @PathVariable("intakeId") long intakeId,
+      @Valid @RequestBody RecoveryConfirmationRequest request) {
+    boolean confirmed = intakeConsultationService.confirmRecovery(
+        intakeId, request.confirmedBy(), request.confirmedAt());
+
+    return confirmed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+  }
+
+  // 저장된 복구 확인 기록 반환
+  @GetMapping("/{intakeId}/recovery-confirmation")
+  public ResponseEntity<RecoveryConfirmation> getRecoveryConfirmation(
+      @PathVariable("intakeId") long intakeId) {
+    return ResponseEntity.of(intakeConsultationService.findRecoveryConfirmation(intakeId));
+  }
+
+  // 복구 확인 담당자와 확인 시각 필수 입력
+  public record RecoveryConfirmationRequest(
+      @NotBlank @Size(max = 255) String confirmedBy,
+      @NotNull Instant confirmedAt
+  ) {
   }
 
   // 접수 내용 충돌을 HTTP 409 응답으로 변환

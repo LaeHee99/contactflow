@@ -4,6 +4,7 @@ import com.challenge40x.contactflow.contact.ContactTask;
 import com.challenge40x.contactflow.contact.ContactTaskRepository;
 import com.challenge40x.contactflow.consultation.Consultation;
 import com.challenge40x.contactflow.consultation.ConsultationRepository;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -101,6 +102,31 @@ public class IntakeConsultationService {
                   row.getFirstContactStatus()))
               .toList();
         });
+  }
+
+  // 원본 접수를 잠근 뒤 복구 확인 기록 저장
+  @Transactional
+  public boolean confirmRecovery(long intakeId, String confirmedBy, Instant confirmedAt) {
+    var intake = intakeRepository.findByIdForUpdate(intakeId);
+    if (intake.isEmpty()) {
+      return false;
+    }
+
+    intake.get().confirmRecovery(confirmedBy, confirmedAt);
+    return true;
+  }
+
+  // 원본 접수에 저장된 복구 확인 기록 조회
+  @Transactional(readOnly = true)
+  public Optional<RecoveryConfirmation> findRecoveryConfirmation(long intakeId) {
+    return intakeRepository.findById(intakeId)
+        .filter(intake -> intake.getRecoveryConfirmedAt() != null)
+        .map(intake -> new RecoveryConfirmation(
+            intake.getRecoveryConfirmedBy(),
+            intake.getRecoveryConfirmedAt().toString()));
+  }
+
+  public record RecoveryConfirmation(String confirmedBy, String confirmedAt) {
   }
 
   public record ConsultationCandidate(

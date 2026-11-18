@@ -49,6 +49,12 @@ public class Intake {
   @Column(name = "recovered")
   private Boolean recovered;
 
+  @Column(name = "recovery_confirmed_by")
+  private String recoveryConfirmedBy;
+
+  @Column(name = "recovery_confirmed_at")
+  private Instant recoveryConfirmedAt;
+
   protected Intake() {
   }
 
@@ -89,5 +95,32 @@ public class Intake {
   void linkConsultation(Consultation consultation, boolean recovered) {
     this.consultation = consultation;
     this.recovered = recovered;
+  }
+
+  // 복구된 원본의 최초 담당자 확인 기록 저장
+  void confirmRecovery(String confirmedBy, Instant confirmedAt) {
+    if (!Boolean.TRUE.equals(recovered) || consultation == null) {
+      throw new IntakeConflictException();
+    }
+
+    if (recoveryConfirmedAt != null) {
+      if (recoveryConfirmedAt.equals(confirmedAt) && recoveryConfirmedBy.equals(confirmedBy)) {
+        return;
+      }
+
+      throw new IntakeConflictException();
+    }
+
+    this.recoveryConfirmedBy = confirmedBy;
+    this.recoveryConfirmedAt = confirmedAt;
+  }
+
+  // 복구 확인 담당자와 확인 시각 조회
+  String getRecoveryConfirmedBy() {
+    return recoveryConfirmedBy;
+  }
+
+  Instant getRecoveryConfirmedAt() {
+    return recoveryConfirmedAt;
   }
 }
