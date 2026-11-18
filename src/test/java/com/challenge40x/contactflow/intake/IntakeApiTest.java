@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -563,6 +564,54 @@ class IntakeApiTest {
     mockMvc.perform(get("/api/intakes").param("linked", "false"))
         .andExpect(status().isOk())
         .andExpect(jsonPath(matchingIntakes).isEmpty());
+  }
+
+  // 첫 연락 작업 저장 실패 시 상담 롤백 및 재시도 결과 검증
+  @Test
+  void retriesIntakeRecoveryAfterContactTaskInsertFails() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-RECOVERY-RETRY-001", "CUSTOMER-RECOVERY-RETRY-001"))
+        .intakeId();
+    long consultationsBefore = jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM consultation", Long.class);
+
+    // 이 테스트에서만 신규 첫 연락 작업 저장 실패 유도
+    jdbcTemplate.execute("""
+        ALTER TABLE contact_task
+        ADD CONSTRAINT reject_first_contact_for_recovery_test
+        CHECK (task_type <> 'FIRST_CONTACT') NOT VALID
+        """);
+    try {
+      assertThatThrownBy(() ->
+          mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId)))
+          .hasStackTraceContaining("reject_first_contact_for_recovery_test");
+    } finally {
+      jdbcTemplate.execute("""
+          ALTER TABLE contact_task
+          DROP CONSTRAINT reject_first_contact_for_recovery_test
+          """);
+    }
+
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM consultation", Long.class)).isEqualTo(consultationsBefore);
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId)).isNull();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isOk());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+
+    assertThat(jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM consultation", Long.class)).isEqualTo(consultationsBefore + 1);
+    assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
   }
 
   // 상담에 연결된 첫 연락 작업 수 조회
