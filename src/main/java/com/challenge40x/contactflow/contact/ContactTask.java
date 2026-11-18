@@ -146,6 +146,11 @@ public class ContactTask {
       throw new ContactTaskConflictException("Callback task cannot be started");
     }
 
+    // 예약 시각 이전 재연락 시작 차단
+    if (scheduledAt == null || now.isBefore(scheduledAt)) {
+      throw new ContactTaskConflictException("Callback is not due yet");
+    }
+
     startedAt = now;
     status = Status.IN_PROGRESS;
   }
