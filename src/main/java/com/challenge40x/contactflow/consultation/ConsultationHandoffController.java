@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.consultation;
 
 import com.challenge40x.contactflow.consultation.ConsultationHandoffService.HandoffView;
+import com.challenge40x.contactflow.consultation.ConsultationHandoffService.UpdateResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -47,6 +48,41 @@ public class ConsultationHandoffController {
   public ResponseEntity<HandoffView> getHandoff(
       @PathVariable("consultationId") long consultationId) {
     return ResponseEntity.of(handoffService.find(consultationId));
+  }
+
+  // GA 인수 시각 기록
+  @PutMapping("/acceptance")
+  public ResponseEntity<Void> acceptHandoff(
+      @PathVariable("consultationId") long consultationId,
+      @Valid @RequestBody AcceptanceRequest request) {
+    return toUpdateResponse(handoffService.accept(consultationId, request.acceptedAt()));
+  }
+
+  // GA 실제 연락 시각과 근거 기록
+  @PutMapping("/contact")
+  public ResponseEntity<Void> recordGaContact(
+      @PathVariable("consultationId") long consultationId,
+      @Valid @RequestBody ContactRequest request) {
+    return toUpdateResponse(
+        handoffService.recordContact(consultationId, request.contactedAt(), request.evidence()));
+  }
+
+  // 인계 기록 저장·부재·상태 충돌에 따른 HTTP 응답 반환
+  private ResponseEntity<Void> toUpdateResponse(UpdateResult result) {
+    return switch (result) {
+      case SAVED -> ResponseEntity.noContent().build();
+      case NOT_FOUND -> ResponseEntity.notFound().build();
+      case CONFLICT -> ResponseEntity.status(HttpStatus.CONFLICT).build();
+    };
+  }
+
+  public record AcceptanceRequest(@NotNull Instant acceptedAt) {
+  }
+
+  public record ContactRequest(
+      @NotNull Instant contactedAt,
+      @NotBlank @Size(max = 1000) String evidence
+  ) {
   }
 
   public record HandoffRequest(

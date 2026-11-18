@@ -26,17 +26,45 @@ public class ConsultationHandoffService {
         });
   }
 
-  // GA 인계 정보와 인수·연락 초기 상태 조회
+  // 상담 잠금 후 GA 인수 기록 저장
+  @Transactional
+  public UpdateResult accept(long consultationId, Instant acceptedAt) {
+    return consultationRepository.findByIdForUpdate(consultationId)
+        .filter(Consultation::hasHandoff)
+        .map(consultation -> consultation.recordAcceptance(acceptedAt)
+            ? UpdateResult.SAVED : UpdateResult.CONFLICT)
+        .orElse(UpdateResult.NOT_FOUND);
+  }
+
+  // 상담 잠금 후 실제 연락 시각과 근거 저장
+  @Transactional
+  public UpdateResult recordContact(long consultationId, Instant contactedAt, String evidence) {
+    return consultationRepository.findByIdForUpdate(consultationId)
+        .filter(Consultation::hasHandoff)
+        .map(consultation -> consultation.recordGaContact(contactedAt, evidence)
+            ? UpdateResult.SAVED : UpdateResult.CONFLICT)
+        .orElse(UpdateResult.NOT_FOUND);
+  }
+
+  // 저장된 인수·연락 기록을 기준으로 인계 상태와 확인 책임 조회
   @Transactional(readOnly = true)
   public Optional<HandoffView> find(long consultationId) {
     return consultationRepository.findById(consultationId)
         .filter(Consultation::hasHandoff)
-        .map(consultation -> new HandoffView(
-            consultation.getGaAssignee(),
-            "PENDING",
-            "UNCONFIRMED",
-            consultation.getFollowUpOwner(),
-            consultation.getNextCheckAt().toString()));
+        .map(consultation -> {
+          Instant acceptedAt = consultation.getGaAcceptedAt();
+          Instant contactedAt = consultation.getGaContactedAt();
+
+          return new HandoffView(
+              consultation.getGaAssignee(),
+              acceptedAt == null ? "PENDING" : "ACCEPTED",
+              contactedAt == null ? "UNCONFIRMED" : "CONFIRMED",
+              consultation.getFollowUpOwner(),
+              consultation.getNextCheckAt().toString(),
+              acceptedAt == null ? null : acceptedAt.toString(),
+              contactedAt == null ? null : contactedAt.toString(),
+              consultation.getGaContactEvidence());
+        });
   }
 
   public record HandoffView(
@@ -44,7 +72,16 @@ public class ConsultationHandoffService {
       String acceptanceStatus,
       String contactStatus,
       String followUpOwner,
-      String nextCheckAt
+      String nextCheckAt,
+      String acceptedAt,
+      String contactedAt,
+      String contactEvidence
   ) {
+  }
+
+  public enum UpdateResult {
+    SAVED,
+    NOT_FOUND,
+    CONFLICT
   }
 }

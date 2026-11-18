@@ -25,6 +25,15 @@ public class Consultation {
   @Column(name = "next_check_at")
   private Instant nextCheckAt;
 
+  @Column(name = "ga_accepted_at")
+  private Instant gaAcceptedAt;
+
+  @Column(name = "ga_contacted_at")
+  private Instant gaContactedAt;
+
+  @Column(name = "ga_contact_evidence", length = 1000)
+  private String gaContactEvidence;
+
   public Consultation() {
   }
 
@@ -55,5 +64,43 @@ public class Consultation {
 
   Instant getNextCheckAt() {
     return nextCheckAt;
+  }
+
+  // 최초 GA 인수 시각 기록 및 동일 요청 재처리
+  boolean recordAcceptance(Instant acceptedAt) {
+    if (gaAcceptedAt != null) {
+      return gaAcceptedAt.equals(acceptedAt);
+    }
+
+    gaAcceptedAt = acceptedAt;
+    return true;
+  }
+
+  // GA 인수 이후 실제 연락 시각과 근거 기록
+  boolean recordGaContact(Instant contactedAt, String evidence) {
+    if (gaAcceptedAt == null || contactedAt.isBefore(gaAcceptedAt)) {
+      return false;
+    }
+
+    if (gaContactedAt != null) {
+      return gaContactedAt.equals(contactedAt) && gaContactEvidence.equals(evidence);
+    }
+
+    gaContactedAt = contactedAt;
+    gaContactEvidence = evidence;
+    return true;
+  }
+
+  // GA 인수 및 실제 연락 기록 조회
+  Instant getGaAcceptedAt() {
+    return gaAcceptedAt;
+  }
+
+  Instant getGaContactedAt() {
+    return gaContactedAt;
+  }
+
+  String getGaContactEvidence() {
+    return gaContactEvidence;
   }
 }
