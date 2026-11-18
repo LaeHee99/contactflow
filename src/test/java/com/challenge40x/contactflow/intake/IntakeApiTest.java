@@ -814,6 +814,37 @@ class IntakeApiTest {
         .andExpect(jsonPath("$.lastFollowUpNote")
             .value("GA 담당자에게 후보자 연락 여부 재확인 요청"))
         .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T08:00:00Z"));
+
+    String overduePath = "/api/consultations/handoffs";
+    String matchingHandoff = "$[?(@.consultationId == " + consultationId + ")]";
+
+    // 다음 확인 기한 직전에는 후속 조치 목록에서 제외
+    mockMvc.perform(get(overduePath).param("dueBy", "2026-11-19T07:59:59Z"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(matchingHandoff).isEmpty());
+
+    // 확인 기한 정각부터 미연락 건과 인톡 확인 책임 조회
+    mockMvc.perform(get(overduePath).param("dueBy", "2026-11-19T08:00:00Z"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(matchingHandoff + ".reason")
+            .value(org.hamcrest.Matchers.contains("GA_CONTACT_UNCONFIRMED")))
+        .andExpect(jsonPath(matchingHandoff + ".followUpOwner")
+            .value(org.hamcrest.Matchers.contains("operator-001")));
+
+    // 실제 연락 근거가 기록되면 기한이 지난 목록에서도 제외
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/contact", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "contactedAt": "2026-11-19T08:30:00Z",
+                  "evidence": "GA 담당자가 후보자와 통화 완료"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get(overduePath).param("dueBy", "2026-11-19T09:00:00Z"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(matchingHandoff).isEmpty());
   }
 
   // 미연결 원본 조회 및 상담 연결 후 목록 제외 검증
