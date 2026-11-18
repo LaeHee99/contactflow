@@ -25,6 +25,15 @@ public class Consultation {
   @Column(name = "next_check_at")
   private Instant nextCheckAt;
 
+  @Column(name = "last_checked_at")
+  private Instant lastCheckedAt;
+
+  @Column(name = "last_follow_up_reason", length = 32)
+  private String lastFollowUpReason;
+
+  @Column(name = "last_follow_up_note", length = 1000)
+  private String lastFollowUpNote;
+
   @Column(name = "ga_accepted_at")
   private Instant gaAcceptedAt;
 
@@ -64,6 +73,40 @@ public class Consultation {
 
   Instant getNextCheckAt() {
     return nextCheckAt;
+  }
+
+  // 확인 기한이 지난 미확인 인계의 결과와 다음 확인 기한 기록
+  boolean recordFollowUp(Instant checkedAt, Instant nextCheckAt, String note) {
+    if (checkedAt.equals(lastCheckedAt)) {
+      return nextCheckAt.equals(this.nextCheckAt) && note.equals(lastFollowUpNote);
+    }
+
+    if (gaContactedAt != null
+        || checkedAt.isBefore(this.nextCheckAt)
+        || !nextCheckAt.isAfter(checkedAt)) {
+      return false;
+    }
+
+    this.lastCheckedAt = checkedAt;
+    this.lastFollowUpReason = gaAcceptedAt == null || gaAcceptedAt.isAfter(checkedAt)
+        ? "GA_NOT_ACCEPTED"
+        : "GA_CONTACT_UNCONFIRMED";
+    this.lastFollowUpNote = note;
+    this.nextCheckAt = nextCheckAt;
+    return true;
+  }
+
+  // 최근 인톡 확인 시각과 결과 조회
+  Instant getLastCheckedAt() {
+    return lastCheckedAt;
+  }
+
+  String getLastFollowUpReason() {
+    return lastFollowUpReason;
+  }
+
+  String getLastFollowUpNote() {
+    return lastFollowUpNote;
   }
 
   // 최초 GA 인수 시각 기록 및 동일 요청 재처리

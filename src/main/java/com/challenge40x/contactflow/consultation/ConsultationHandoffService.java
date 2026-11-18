@@ -46,6 +46,17 @@ public class ConsultationHandoffService {
         .orElse(UpdateResult.NOT_FOUND);
   }
 
+  // 상담 잠금 후 인톡 후속 확인 결과와 다음 기한 저장
+  @Transactional
+  public UpdateResult recordFollowUp(
+      long consultationId, Instant checkedAt, Instant nextCheckAt, String note) {
+    return consultationRepository.findByIdForUpdate(consultationId)
+        .filter(Consultation::hasHandoff)
+        .map(consultation -> consultation.recordFollowUp(checkedAt, nextCheckAt, note)
+            ? UpdateResult.SAVED : UpdateResult.CONFLICT)
+        .orElse(UpdateResult.NOT_FOUND);
+  }
+
   // 저장된 인수·연락 기록을 기준으로 인계 상태와 확인 책임 조회
   @Transactional(readOnly = true)
   public Optional<HandoffView> find(long consultationId) {
@@ -63,7 +74,11 @@ public class ConsultationHandoffService {
               consultation.getNextCheckAt().toString(),
               acceptedAt == null ? null : acceptedAt.toString(),
               contactedAt == null ? null : contactedAt.toString(),
-              consultation.getGaContactEvidence());
+              consultation.getGaContactEvidence(),
+              consultation.getLastCheckedAt() == null
+                  ? null : consultation.getLastCheckedAt().toString(),
+              consultation.getLastFollowUpReason(),
+              consultation.getLastFollowUpNote());
         });
   }
 
@@ -75,7 +90,10 @@ public class ConsultationHandoffService {
       String nextCheckAt,
       String acceptedAt,
       String contactedAt,
-      String contactEvidence
+      String contactEvidence,
+      String lastCheckedAt,
+      String lastFollowUpReason,
+      String lastFollowUpNote
   ) {
   }
 

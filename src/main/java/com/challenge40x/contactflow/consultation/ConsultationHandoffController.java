@@ -67,6 +67,15 @@ public class ConsultationHandoffController {
         handoffService.recordContact(consultationId, request.contactedAt(), request.evidence()));
   }
 
+  // GA 인계 후 인톡 확인 결과와 다음 기한 기록
+  @PutMapping("/follow-up")
+  public ResponseEntity<Void> recordFollowUp(
+      @PathVariable("consultationId") long consultationId,
+      @Valid @RequestBody FollowUpRequest request) {
+    return toUpdateResponse(handoffService.recordFollowUp(
+        consultationId, request.checkedAt(), request.nextCheckAt(), request.note()));
+  }
+
   // 인계 기록 저장·부재·상태 충돌에 따른 HTTP 응답 반환
   private ResponseEntity<Void> toUpdateResponse(UpdateResult result) {
     return switch (result) {
@@ -82,6 +91,14 @@ public class ConsultationHandoffController {
   public record ContactRequest(
       @NotNull Instant contactedAt,
       @NotBlank @Size(max = 1000) String evidence
+  ) {
+  }
+
+  // 후속 확인 시각·다음 기한·메모 입력
+  public record FollowUpRequest(
+      @NotNull Instant checkedAt,
+      @NotNull Instant nextCheckAt,
+      @NotBlank @Size(max = 1000) String note
   ) {
   }
 
