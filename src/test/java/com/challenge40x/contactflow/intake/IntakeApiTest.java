@@ -298,6 +298,46 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].evidence").value("전화 연결 후 고객에게 상담 절차 안내 완료"));
   }
 
+  // 미배정 연락 작업의 완료 거부 및 대기 상태 유지 검증
+  @Test
+  void rejectsCompletionOfUnassignedTask() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-UNASSIGNED-001", "CUSTOMER-UNASSIGNED-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+    long taskId = jdbcTemplate.queryForObject("""
+        SELECT id FROM contact_task
+        WHERE consultation_id = ? AND task_type = 'FIRST_CONTACT'
+        """, Long.class, consultationId);
+
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/completion",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "completedAt": "2026-11-18T01:30:00Z",
+                  "evidence": "고객 연락 완료"
+                }
+                """))
+        .andExpect(status().isConflict());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].status").value("PENDING"))
+        .andExpect(jsonPath("$[0].completedAt").doesNotExist())
+        .andExpect(jsonPath("$[0].evidence").doesNotExist());
+  }
+
   // 상담에 연결된 첫 연락 작업 수 조회
   private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
     return jdbcTemplate.queryForObject("""
