@@ -1,5 +1,6 @@
 package com.challenge40x.contactflow.intake;
 
+import com.challenge40x.contactflow.intake.IntakeConsultationService.ConsultationCandidate;
 import com.challenge40x.contactflow.intake.IntakeService.IntakeSummary;
 import java.util.List;
 import java.time.Instant;
@@ -36,6 +37,13 @@ public class IntakeController {
   @GetMapping(params = "linked=false")
   public List<IntakeSummary> listUnlinkedIntakes() {
     return intakeService.listUnlinked();
+  }
+
+  // 복구 대상 원본의 상담 후보 반환 및 원본 부재 시 404 응답
+  @GetMapping("/{intakeId}/consultation-candidates")
+  public ResponseEntity<List<ConsultationCandidate>> listConsultationCandidates(
+      @PathVariable("intakeId") long intakeId) {
+    return ResponseEntity.of(intakeConsultationService.findCandidates(intakeId));
   }
 
   // 접수 결과에 따른 HTTP 상태와 접수 ID 반환

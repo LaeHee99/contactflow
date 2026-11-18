@@ -40,4 +40,29 @@ public interface IntakeRepository extends JpaRepository<Intake, Long> {
 
   // 기존 상담 연결로 복구된 원본 접수 수 집계
   long countByConsultation_IdAndRecoveredTrue(long consultationId);
+
+  // 같은 고객의 원본이 연결된 상담에서 대기 중인 첫 연락 작업 조회
+  @Query(value = """
+      SELECT task.consultation_id AS "consultationId",
+             task.id AS "firstContactTaskId",
+             task.status AS "firstContactStatus"
+      FROM contact_task task
+      WHERE task.task_type = 'FIRST_CONTACT'
+        AND task.status = 'PENDING'
+        AND EXISTS (
+          SELECT 1
+          FROM intake linked
+          WHERE linked.consultation_id = task.consultation_id
+            AND linked.customer_key = :customerKey
+        )
+      ORDER BY task.consultation_id, task.id
+      """, nativeQuery = true)
+  List<ConsultationCandidateRow> findConsultationCandidates(
+      @Param("customerKey") String customerKey);
+
+  interface ConsultationCandidateRow {
+    Long getConsultationId();
+    Long getFirstContactTaskId();
+    String getFirstContactStatus();
+  }
 }

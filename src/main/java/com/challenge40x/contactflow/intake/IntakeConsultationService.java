@@ -6,6 +6,7 @@ import com.challenge40x.contactflow.consultation.Consultation;
 import com.challenge40x.contactflow.consultation.ConsultationRepository;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.Optional;
@@ -81,6 +82,29 @@ public class IntakeConsultationService {
     // 명시적 복구 또는 기존 상담 연결의 복구 여부 기록
     storedIntake.linkConsultation(target, recovery || targetConsultationId != null);
     return Optional.of(new LinkResult(target.getId(), true));
+  }
+
+  // 미연결 원본의 고객 식별자로 기존 상담 후보 조회
+  @Transactional(readOnly = true)
+  public Optional<List<ConsultationCandidate>> findCandidates(long intakeId) {
+    return intakeRepository.findById(intakeId)
+        .map(intake -> {
+          if (intake.getConsultation() != null) {
+            return List.<ConsultationCandidate>of();
+          }
+
+          return intakeRepository.findConsultationCandidates(intake.getCustomerKey())
+              .stream()
+              .map(row -> new ConsultationCandidate(
+                  row.getConsultationId(),
+                  row.getFirstContactTaskId(),
+                  row.getFirstContactStatus()))
+              .toList();
+        });
+  }
+
+  public record ConsultationCandidate(
+      long consultationId, long firstContactTaskId, String firstContactStatus) {
   }
 
   public record LinkResult(long consultationId, boolean created) {
