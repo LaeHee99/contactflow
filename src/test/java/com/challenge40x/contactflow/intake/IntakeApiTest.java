@@ -282,7 +282,9 @@ class IntakeApiTest {
                 {
                   "assignee": "operator-001",
                   "customerPreferredAt": "2026-11-19T05:00:00Z",
-                  "agreedContactAt": "2026-11-19T05:00:00Z"
+                  "agreedContactAt": "2026-11-19T05:00:00Z",
+                  "changedBy": "operator-002",
+                  "changeReason": "후보자가 오후 연락을 요청해 합의"
                 }
                 """))
         .andExpect(status().isNoContent());
@@ -295,6 +297,19 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].agreedContactAt").value("2026-11-19T05:00:00Z"))
         .andExpect(jsonPath("$[0].effectiveDueAt").value("2026-11-19T05:00:00Z"))
         .andExpect(jsonPath("$[0].needsTimeConfirmation").value(false));
+
+    // 기본 기한에서 합의 시각으로 변경된 이력과 담당자·사유 조회 검증
+    mockMvc.perform(get(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/history",
+            consultationId, taskId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].previousEffectiveDueAt")
+            .value(org.hamcrest.Matchers.contains("2026-11-19T02:00:00Z")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].newEffectiveDueAt")
+            .value(org.hamcrest.Matchers.contains("2026-11-19T05:00:00Z")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].changeReason")
+            .value(org.hamcrest.Matchers.contains("후보자가 오후 연락을 요청해 합의")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].changedAt").isNotEmpty());
 
     // 담당자 배정 직후 수락 대기 상태 검증
     mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
