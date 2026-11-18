@@ -527,6 +527,32 @@ class IntakeApiTest {
             .value("GA 담당자가 후보자와 통화해 상담 일정을 확인함"));
   }
 
+  // 미연결 원본 조회 및 상담 연결 후 목록 제외 검증
+  @Test
+  void listsUnlinkedIntakeUntilConsultationIsLinked() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-UNLINKED-001", "CUSTOMER-UNLINKED-001"))
+        .intakeId();
+
+    String matchingIntakes = "$[?(@.externalId == 'WEB-UNLINKED-001')]";
+
+    // 연결 전 목록에 해당 홈페이지 원본이 한 건 있는지 검증
+    mockMvc.perform(get("/api/intakes").param("linked", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(matchingIntakes + ".source")
+            .value(org.hamcrest.Matchers.contains("WEBSITE")));
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(get("/api/intakes").param("linked", "false"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath(matchingIntakes).isEmpty());
+  }
+
   // 상담에 연결된 첫 연락 작업 수 조회
   private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
     return jdbcTemplate.queryForObject("""
