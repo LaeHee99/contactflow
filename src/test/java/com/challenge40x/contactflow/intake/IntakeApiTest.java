@@ -178,6 +178,12 @@ class IntakeApiTest {
      """, Long.class, websiteId, metaId, consultationId)).isEqualTo(2L);
 
     assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
+
+    // 반복 복구는 한 건으로 집계하고 미연락 작업은 제외
+    mockMvc.perform(get("/api/consultations/{consultationId}/metrics", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.recoveredIntakeCount").value(1))
+        .andExpect(jsonPath("$.onTimeFirstContactCount").value(0));
   }
 
   // 신규 상담의 첫 연락 작업이 대기 상태로 조회되는지 검증
@@ -322,6 +328,12 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].status").value("COMPLETED"))
         .andExpect(jsonPath("$[0].completedAt").value("2026-11-18T01:30:00Z"))
         .andExpect(jsonPath("$[0].evidence").value("전화 연결 후 고객에게 상담 절차 안내 완료"));
+
+    // 정상 접수의 기한 내 첫 연락은 연락 지표에만 반영
+    mockMvc.perform(get("/api/consultations/{consultationId}/metrics", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.recoveredIntakeCount").value(0))
+        .andExpect(jsonPath("$.onTimeFirstContactCount").value(1));
   }
 
   // 미배정 연락 작업의 완료 거부 및 대기 상태 유지 검증
