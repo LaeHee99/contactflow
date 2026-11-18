@@ -614,6 +614,53 @@ class IntakeApiTest {
     assertThat(countFirstContactTasks(jdbcTemplate, consultationId)).isEqualTo(1L);
   }
 
+  // 기한 생략 시 금요일 접수의 첫 안내 기한을 월요일로 계산
+  @Test
+  void calculatesFirstContactDueAtWhenAssignmentOmitsDeadline() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    mockMvc.perform(post("/api/intakes")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "source": "WEBSITE",
+                  "externalId": "WEB-BUSINESS-HOURS-001",
+                  "customerKey": "CUSTOMER-BUSINESS-HOURS-001",
+                  "receivedAt": "2026-11-20T08:00:00Z"
+                }
+                """))
+        .andExpect(status().isCreated());
+
+    long intakeId = jdbcTemplate.queryForObject("""
+        SELECT id FROM intake WHERE source = ? AND external_id = ?
+        """, Long.class, "WEBSITE", "WEB-BUSINESS-HOURS-001");
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+    long taskId = jdbcTemplate.queryForObject("""
+        SELECT id FROM contact_task
+        WHERE consultation_id = ? AND task_type = 'FIRST_CONTACT'
+        """, Long.class, consultationId);
+
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/assignment",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"assignee": "operator-001"}
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].assignee").value("operator-001"))
+        .andExpect(jsonPath("$[0].dueAt").value("2026-11-23T01:00:00Z"));
+  }
+
   // 상담에 연결된 첫 연락 작업 수 조회
   private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
     return jdbcTemplate.queryForObject("""
