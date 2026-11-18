@@ -36,13 +36,15 @@ public class ContactTaskQueryService {
             task.getDueAt() == null ? null : task.getDueAt().toString(),
             task.getCustomerPreferredAt() == null ? null : task.getCustomerPreferredAt().toString(),
             task.getCompletedAt() == null ? null : task.getCompletedAt().toString(),
-            task.getEvidence()))
+            task.getEvidence(),
+            task.getScheduledAt() == null ? null : task.getScheduledAt().toString(),
+            task.getChannel()))
         .toList();
 
     return Optional.of(tasks);
   }
 
-  // 연락 작업의 상태·배정 정보·완료 근거 반환
+  // 연락 작업의 상태·배정·완료·재연락 예약 정보 반환
   public record ContactTaskView(
       long taskId,
       String taskType,
@@ -51,7 +53,9 @@ public class ContactTaskQueryService {
       String dueAt,
       String customerPreferredAt,
       String completedAt,
-      String evidence
+      String evidence,
+      String scheduledAt,
+      String channel
   ) {
   }
 }

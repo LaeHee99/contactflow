@@ -49,6 +49,18 @@ public class ContactTask {
   @Column(name = "evidence", length = 1000)
   private String evidence;
 
+  @Column(name = "callback_consented")
+  private Boolean callbackConsented;
+
+  @Column(name = "callback_reason", length = 1000)
+  private String callbackReason;
+
+  @Column(name = "scheduled_at")
+  private Instant scheduledAt;
+
+  @Column(name = "channel", length = 32)
+  private String channel;
+
   protected ContactTask() {
   }
 
@@ -59,6 +71,45 @@ public class ContactTask {
     task.taskType = TaskType.FIRST_CONTACT;
     task.status = Status.PENDING;
     return task;
+  }
+
+  // 동의가 확인된 재연락 대기 작업 생성
+  static ContactTask callback(
+      Consultation consultation, String reason, Instant scheduledAt,
+      String channel, String assignee) {
+    var task = new ContactTask();
+    task.consultation = consultation;
+    task.taskType = TaskType.CALLBACK;
+    task.status = Status.PENDING;
+    task.scheduleCallback(reason, scheduledAt, channel, assignee);
+    return task;
+  }
+
+  // 대기 중인 재연락 작업의 동의와 예약 정보 기록
+  void scheduleCallback(String reason, Instant scheduledAt, String channel, String assignee) {
+    if (status != Status.PENDING) {
+      throw new ContactTaskConflictException("Callback task is no longer pending");
+    }
+
+    this.callbackConsented = true;
+    this.callbackReason = reason;
+    this.scheduledAt = scheduledAt;
+    this.channel = channel;
+    this.assignee = assignee;
+  }
+
+  // 재연락 작업 여부 확인
+  boolean isCallback() {
+    return taskType == TaskType.CALLBACK;
+  }
+
+  // 재연락 예약 시각과 채널 조회
+  Instant getScheduledAt() {
+    return scheduledAt;
+  }
+
+  String getChannel() {
+    return channel;
   }
 
   // 연락 작업의 조회 응답에 사용할 정보 반환
@@ -130,6 +181,7 @@ public class ContactTask {
   }
 
   private enum TaskType {
-    FIRST_CONTACT
+    FIRST_CONTACT,
+    CALLBACK
   }
 }
