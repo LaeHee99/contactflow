@@ -38,7 +38,7 @@ public class IntakeConsultationService {
 
   // 새 상담 생성 또는 지정된 기존 상담 연결 및 재처리 결과 반환
   @Transactional
-  public Optional<LinkResult> link(long intakeId, Long targetConsultationId) {
+  public Optional<LinkResult> link(long intakeId, Long targetConsultationId, boolean recovery) {
     var intake = intakeRepository.findByIdForUpdate(intakeId);
     if (intake.isEmpty()) {
       return Optional.empty();
@@ -78,7 +78,8 @@ public class IntakeConsultationService {
       target = requestedConsultation.get();
     }
 
-    storedIntake.linkConsultation(target, targetConsultationId != null);
+    // 명시적 복구 또는 기존 상담 연결의 복구 여부 기록
+    storedIntake.linkConsultation(target, recovery || targetConsultationId != null);
     return Optional.of(new LinkResult(target.getId(), true));
   }
 

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,11 +58,10 @@ public class IntakeController {
   @PutMapping("/{intakeId}/consultation")
   public ResponseEntity<ConsultationLinkResponse> linkConsultation(
       @PathVariable("intakeId") long intakeId,
-      @Valid
-      @RequestBody(required = false)
-      ConsultationLinkRequest request) {
+      @RequestParam(name = "recovery", defaultValue = "false") boolean recovery,
+      @Valid @RequestBody(required = false) ConsultationLinkRequest request) {
     Long targetConsultationId = request == null ? null : request.consultationId();
-    var result = intakeConsultationService.link(intakeId, targetConsultationId);
+    var result = intakeConsultationService.link(intakeId, targetConsultationId, recovery);
     if (result.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
