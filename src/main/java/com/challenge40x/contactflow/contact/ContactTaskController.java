@@ -58,6 +58,18 @@ public class ContactTaskController {
     return assigned ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
   }
 
+  // 연락 작업 수락 성공 시 204, 대상 작업 부재 시 404 반환
+  @PutMapping("/{taskId}/acceptance")
+  public ResponseEntity<Void> acceptContactTask(
+      @PathVariable("consultationId") long consultationId,
+      @PathVariable("taskId") long taskId,
+      @Valid @RequestBody AcceptanceRequest request) {
+    boolean accepted = contactTaskAssignmentService.accept(
+        consultationId, taskId, request.assignee(), request.acceptedAt());
+
+    return accepted ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+  }
+
   // 연락 완료 기록 저장 후 204 또는 대상 작업 부재 시 404 반환
   @PutMapping("/{taskId}/completion")
   public ResponseEntity<Void> completeContactTask(
@@ -90,5 +102,9 @@ public class ContactTaskController {
       Instant customerPreferredAt,
       Instant agreedContactAt
   ) {
+  }
+
+  // 수락 담당자와 수락 시각 입력
+  public record AcceptanceRequest(@NotBlank String assignee, @NotNull Instant acceptedAt) {
   }
 }

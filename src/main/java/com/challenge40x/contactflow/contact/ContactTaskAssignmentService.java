@@ -26,4 +26,16 @@ public class ContactTaskAssignmentService {
     task.get().assign(assignee, dueAt, customerPreferredAt, agreedContactAt);
     return true;
   }
+
+  // 상담 내 연락 작업을 잠근 뒤 담당자 수락 기록
+  @Transactional
+  public boolean accept(long consultationId, long taskId, String assignee, Instant acceptedAt) {
+    var task = contactTaskRepository.findByIdAndConsultation_Id(taskId, consultationId);
+    if (task.isEmpty()) {
+      return false;
+    }
+
+    task.get().acceptAssignment(assignee, acceptedAt);
+    return true;
+  }
 }

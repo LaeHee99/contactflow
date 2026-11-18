@@ -39,6 +39,9 @@ public class ContactTask {
   @Column(name = "assignee")
   private String assignee;
 
+  @Column(name = "accepted_at")
+  private Instant acceptedAt;
+
   @Column(name = "due_at")
   private Instant dueAt;
 
@@ -187,8 +190,13 @@ public class ContactTask {
   }
 
   // 담당자 배정 및 기본·희망·합의 시각 기록
-  void assign(
-      String assignee, Instant dueAt, Instant customerPreferredAt, Instant agreedContactAt) {
+  void assign(String assignee, Instant dueAt, Instant customerPreferredAt, Instant agreedContactAt) {
+
+    // 담당자 변경 시 이전 담당자의 수락 기록 초기화
+    if (!assignee.equals(this.assignee)) {
+      this.acceptedAt = null;
+    }
+
     this.assignee = assignee;
     if (dueAt != null) {
       this.dueAt = dueAt;
@@ -200,6 +208,37 @@ public class ContactTask {
   // 배정된 담당자와 기본 연락 기한 조회
   String getAssignee() {
     return assignee;
+  }
+
+  // 배정된 담당자의 첫 연락 작업 수락 기록
+  void acceptAssignment(String assignee, Instant acceptedAt) {
+    if (taskType != TaskType.FIRST_CONTACT || !assignee.equals(this.assignee)) {
+      throw new ContactTaskConflictException("Assignee cannot accept this task");
+    }
+
+    if (acceptedAt.equals(this.acceptedAt)) {
+      return;
+    }
+
+    if (status != Status.PENDING || this.acceptedAt != null) {
+      throw new ContactTaskConflictException("Task assignment cannot be accepted");
+    }
+
+    this.acceptedAt = acceptedAt;
+  }
+
+  // 미배정·수락 대기·수락 완료 상태 조회
+  String getAssignmentStatus() {
+    if (assignee == null) {
+      return "UNASSIGNED";
+    }
+
+    return acceptedAt == null ? "PENDING_ACCEPTANCE" : "ACCEPTED";
+  }
+
+  // 담당자의 수락 시각 조회
+  Instant getAcceptedAt() {
+    return acceptedAt;
   }
 
   Instant getDueAt() {
