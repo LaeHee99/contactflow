@@ -450,6 +450,36 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].startedAt").doesNotExist())
         .andExpect(jsonPath("$[1].channel").value("PHONE"))
         .andExpect(jsonPath("$[1].assignee").value("operator-001"));
+
+    long callbackId = jdbcTemplate.queryForObject("""
+        SELECT id FROM contact_task
+        WHERE consultation_id = ? AND task_type = 'CALLBACK'
+        """, Long.class, consultationId);
+
+    // 기존 재연락 예약의 선호 채널 변경
+    mockMvc.perform(put("/api/consultations/{consultationId}/callback", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "consented": true,
+                  "reason": "고객이 문자 연락으로 변경 요청",
+                  "scheduledAt": "%s",
+                  "channel": "SMS",
+                  "assignee": "operator-001"
+                }
+                """.formatted(scheduledAt)))
+        .andExpect(status().isOk());
+
+    // 채널 변경 후 동일 작업 ID·예약 시각·대기 상태 유지 검증
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(2))
+        .andExpect(jsonPath("$[1].taskId")
+            .value(org.hamcrest.Matchers.is(callbackId), Long.class))
+        .andExpect(jsonPath("$[1].status").value("PENDING"))
+        .andExpect(jsonPath("$[1].scheduledAt").value(scheduledAt.toString()))
+        .andExpect(jsonPath("$[1].channel").value("SMS"))
+        .andExpect(jsonPath("$[1].startedAt").doesNotExist());
   }
 
   // 재연락 미응답 결과 기록 및 실제 연락 완료 미처리 검증
