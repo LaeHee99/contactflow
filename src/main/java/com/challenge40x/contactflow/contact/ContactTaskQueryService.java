@@ -85,15 +85,16 @@ public class ContactTaskQueryService {
     return value == null ? null : value.toString();
   }
 
+  // 배정과 재연락 예약의 변경 전후 값 반환
   public record ContactTaskHistoryView(
       String previousAssignee,
       String newAssignee,
       String previousEffectiveDueAt,
+      String newEffectiveDueAt,
       String previousChannel,
       String newChannel,
       String previousScheduledAt,
       String newScheduledAt,
-      String newEffectiveDueAt,
       String changedBy,
       String changeReason,
       String changedAt
