@@ -246,6 +246,58 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[0].customerPreferredAt").value("2026-11-19T05:00:00Z"));
   }
 
+  // 배정된 연락 작업의 완료 상태·시각·근거 저장 검증
+  @Test
+  void completesAssignedContactTaskWithEvidence() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-COMPLETION-001", "CUSTOMER-COMPLETION-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+    long taskId = jdbcTemplate.queryForObject("""
+        SELECT id FROM contact_task
+        WHERE consultation_id = ? AND task_type = 'FIRST_CONTACT'
+        """, Long.class, consultationId);
+
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/assignment",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "assignee": "operator-001",
+                  "dueAt": "2026-11-18T02:00:00Z"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(put(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/completion",
+            consultationId, taskId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "completedAt": "2026-11-18T01:30:00Z",
+                  "evidence": "전화 연결 후 고객에게 상담 절차 안내 완료"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].status").value("COMPLETED"))
+        .andExpect(jsonPath("$[0].completedAt").value("2026-11-18T01:30:00Z"))
+        .andExpect(jsonPath("$[0].evidence").value("전화 연결 후 고객에게 상담 절차 안내 완료"));
+  }
+
   // 상담에 연결된 첫 연락 작업 수 조회
   private long countFirstContactTasks(JdbcTemplate jdbcTemplate, long consultationId) {
     return jdbcTemplate.queryForObject("""
