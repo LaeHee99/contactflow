@@ -95,8 +95,16 @@ public class ContactTask {
     return customerPreferredAt;
   }
 
-  // 담당자 배정 확인 후 실제 연락 완료 시각과 근거 기록
+  // 연락 완료 기록 및 동일 요청 재전송 시 최초 기록 보존
   void complete(Instant completedAt, String evidence) {
+    if (status == Status.COMPLETED) {
+      if (completedAt.equals(this.completedAt) && evidence.equals(this.evidence)) {
+        return;
+      }
+
+      throw new ContactTaskConflictException("Contact task already has a different completion");
+    }
+
     if (assignee == null || assignee.isBlank()) {
       throw new ContactTaskConflictException("Contact task has no assignee");
     }
