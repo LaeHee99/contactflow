@@ -566,6 +566,56 @@ class IntakeApiTest {
             .value("GA 담당자가 후보자와 통화해 상담 일정을 확인함"));
   }
 
+  // GA 미수락 건의 확인 결과와 다음 확인 기한 기록 검증
+  @Test
+  void recordsFollowUpForUnacceptedGaHandoff() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-HANDOFF-FOLLOWUP-001", "CUSTOMER-HANDOFF-FOLLOWUP-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "gaAssignee": "ga-operator-001",
+                  "followUpOwner": "operator-001",
+                  "nextCheckAt": "2026-11-19T02:00:00Z"
+                }
+                """))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/handoff/follow-up", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "checkedAt": "2026-11-19T02:15:00Z",
+                  "nextCheckAt": "2026-11-19T05:00:00Z",
+                  "note": "GA 담당자에게 인수 여부 재확인 요청"
+                }
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/handoff", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.acceptanceStatus").value("PENDING"))
+        .andExpect(jsonPath("$.contactStatus").value("UNCONFIRMED"))
+        .andExpect(jsonPath("$.followUpOwner").value("operator-001"))
+        .andExpect(jsonPath("$.lastCheckedAt").value("2026-11-19T02:15:00Z"))
+        .andExpect(jsonPath("$.lastFollowUpReason").value("GA_NOT_ACCEPTED"))
+        .andExpect(jsonPath("$.lastFollowUpNote").value("GA 담당자에게 인수 여부 재확인 요청"))
+        .andExpect(jsonPath("$.nextCheckAt").value("2026-11-19T05:00:00Z"));
+  }
+
   // 미연결 원본 조회 및 상담 연결 후 목록 제외 검증
   @Test
   void listsUnlinkedIntakeUntilConsultationIsLinked() throws Exception {
