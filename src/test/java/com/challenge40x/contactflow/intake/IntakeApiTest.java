@@ -444,6 +444,55 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].assignee").value("operator-001"));
   }
 
+  // 재연락 미응답 결과 기록 및 실제 연락 완료 미처리 검증
+  @Test
+  void recordsUnansweredCallbackWithoutCompletingContact() throws Exception {
+    var mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    var intakeService = webApplicationContext.getBean(IntakeService.class);
+    var jdbcTemplate = webApplicationContext.getBean(JdbcTemplate.class);
+
+    long intakeId = intakeService.receive(new ReceiveIntakeCommand(
+            IntakeSource.WEBSITE, "WEB-CALLBACK-NO-ANSWER-001", "CUSTOMER-CALLBACK-NO-ANSWER-001"))
+        .intakeId();
+
+    mockMvc.perform(put("/api/intakes/{intakeId}/consultation", intakeId))
+        .andExpect(status().isCreated());
+
+    long consultationId = jdbcTemplate.queryForObject(
+        "SELECT consultation_id FROM intake WHERE id = ?", Long.class, intakeId);
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/callback", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {
+                  "consented": true,
+                  "reason": "고객이 재연락 요청",
+                  "scheduledAt": "2026-11-18T01:00:00Z",
+                  "channel": "PHONE",
+                  "assignee": "operator-001"
+                }
+                """))
+        .andExpect(status().isCreated());
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/callback/start", consultationId))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(put("/api/consultations/{consultationId}/callback/attempt", consultationId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"outcome": "NO_ANSWER"}
+                """))
+        .andExpect(status().isNoContent());
+
+    mockMvc.perform(get("/api/consultations/{consultationId}/contact-tasks", consultationId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[1].taskType").value("CALLBACK"))
+        .andExpect(jsonPath("$[1].status").value("NO_ANSWER"))
+        .andExpect(jsonPath("$[1].startedAt").exists())
+        .andExpect(jsonPath("$[1].completedAt").doesNotExist())
+        .andExpect(jsonPath("$[1].evidence").doesNotExist());
+  }
+
   // 재연락 동의 철회 후 작업 취소 및 연락 시작 차단 검증
   @Test
   void blocksCallbackStartAfterConsentWithdrawal() throws Exception {
