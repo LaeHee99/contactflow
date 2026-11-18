@@ -2,11 +2,13 @@ package com.challenge40x.contactflow.consultation;
 
 import com.challenge40x.contactflow.consultation.ConsultationHandoffService.HandoffView;
 import com.challenge40x.contactflow.consultation.ConsultationHandoffService.UpdateResult;
+import com.challenge40x.contactflow.consultation.ConsultationHandoffService.FollowUpHistoryView;
+import java.util.List;
+import java.time.Instant;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -74,6 +76,13 @@ public class ConsultationHandoffController {
       @Valid @RequestBody FollowUpRequest request) {
     return toUpdateResponse(handoffService.recordFollowUp(
         consultationId, request.checkedAt(), request.nextCheckAt(), request.note()));
+  }
+
+  // 인계의 후속 조치 이력 반환 및 인계 부재 시 404 응답
+  @GetMapping("/follow-up/history")
+  public ResponseEntity<List<FollowUpHistoryView>> listFollowUpHistory(
+      @PathVariable("consultationId") long consultationId) {
+    return ResponseEntity.of(handoffService.findFollowUpHistory(consultationId));
   }
 
   // 인계 기록 저장·부재·상태 충돌에 따른 HTTP 응답 반환

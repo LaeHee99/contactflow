@@ -10,9 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConsultationHandoffService {
 
   private final ConsultationRepository consultationRepository;
+  private final HandoffFollowUpHistoryRepository followUpHistoryRepository;
 
-  public ConsultationHandoffService(ConsultationRepository consultationRepository) {
+  public ConsultationHandoffService(
+      ConsultationRepository consultationRepository,
+      HandoffFollowUpHistoryRepository followUpHistoryRepository) {
     this.consultationRepository = consultationRepository;
+    this.followUpHistoryRepository = followUpHistoryRepository;
   }
 
   // 상담 잠금 후 인계 정보 저장 및 최초 등록 여부 반환
@@ -47,15 +51,56 @@ public class ConsultationHandoffService {
         .orElse(UpdateResult.NOT_FOUND);
   }
 
-  // 상담 잠금 후 인톡 후속 확인 결과와 다음 기한 저장
+  // 상담을 잠근 뒤 최근 확인 상태와 새 후속 조치 이력 저장
   @Transactional
   public UpdateResult recordFollowUp(
       long consultationId, Instant checkedAt, Instant nextCheckAt, String note) {
     return consultationRepository.findByIdForUpdate(consultationId)
         .filter(Consultation::hasHandoff)
-        .map(consultation -> consultation.recordFollowUp(checkedAt, nextCheckAt, note)
-            ? UpdateResult.SAVED : UpdateResult.CONFLICT)
+        .map(consultation -> {
+          Instant previousNextCheckAt = consultation.getNextCheckAt();
+          boolean replay = checkedAt.equals(consultation.getLastCheckedAt());
+
+          if (!consultation.recordFollowUp(checkedAt, nextCheckAt, note)) {
+            return UpdateResult.CONFLICT;
+          }
+
+          if (!replay) {
+            followUpHistoryRepository.save(
+                new HandoffFollowUpHistory(consultation, previousNextCheckAt));
+          }
+
+          return UpdateResult.SAVED;
+        })
         .orElse(UpdateResult.NOT_FOUND);
+  }
+
+  // 상담에 저장된 GA 후속 조치 이력 조회
+  @Transactional(readOnly = true)
+  public Optional<List<FollowUpHistoryView>> findFollowUpHistory(long consultationId) {
+    return consultationRepository.findById(consultationId)
+        .filter(Consultation::hasHandoff)
+        .map(consultation -> followUpHistoryRepository
+            .findAllByConsultation_IdOrderByIdAsc(consultation.getId())
+            .stream()
+            .map(row -> new FollowUpHistoryView(
+                row.getFollowUpOwner(),
+                row.getCheckedAt().toString(),
+                row.getPreviousNextCheckAt().toString(),
+                row.getNextCheckAt().toString(),
+                row.getReason(),
+                row.getNote()))
+            .toList());
+  }
+
+  public record FollowUpHistoryView(
+      String followUpOwner,
+      String checkedAt,
+      String previousNextCheckAt,
+      String nextCheckAt,
+      String reason,
+      String note
+  ) {
   }
 
   // 저장된 인수·연락 기록을 기준으로 인계 상태와 확인 책임 조회
