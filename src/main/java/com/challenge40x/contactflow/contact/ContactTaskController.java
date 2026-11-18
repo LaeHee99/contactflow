@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.contact;
 
 import com.challenge40x.contactflow.contact.ContactTaskQueryService.ContactTaskView;
+import com.challenge40x.contactflow.contact.ContactTaskQueryService.ContactTaskHistoryView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -41,6 +42,14 @@ public class ContactTaskController {
     return ResponseEntity.of(contactTaskQueryService.findByConsultation(consultationId));
   }
 
+  // 연락 작업 변경 이력 반환 및 상담에 해당 작업이 없으면 404 응답
+  @GetMapping("/{taskId}/history")
+  public ResponseEntity<List<ContactTaskHistoryView>> listContactTaskHistory(
+      @PathVariable("consultationId") long consultationId,
+      @PathVariable("taskId") long taskId) {
+    return ResponseEntity.of(contactTaskQueryService.findHistory(consultationId, taskId));
+  }
+
   // 담당자·기한 저장 성공 시 204, 상담에 해당 작업이 없으면 404 반환
   @PutMapping("/{taskId}/assignment")
   public ResponseEntity<Void> assignContactTask(
@@ -53,7 +62,9 @@ public class ContactTaskController {
         request.assignee(),
         request.dueAt(),
         request.customerPreferredAt(),
-        request.agreedContactAt());
+        request.agreedContactAt(),
+        request.changedBy(),
+        request.changeReason());
 
     return assigned ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
   }
@@ -100,7 +111,9 @@ public class ContactTaskController {
       @NotBlank String assignee,
       Instant dueAt,
       Instant customerPreferredAt,
-      Instant agreedContactAt
+      Instant agreedContactAt,
+      @Size(max = 255) String changedBy,
+      @Size(max = 1000) String changeReason
   ) {
   }
 

@@ -1,6 +1,7 @@
 package com.challenge40x.contactflow.contact;
 
 import java.time.Instant;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -8,22 +9,39 @@ import org.springframework.transaction.annotation.Transactional;
 public class ContactTaskAssignmentService {
 
   private final ContactTaskRepository contactTaskRepository;
+  private final ContactTaskChangeRepository contactTaskChangeRepository;
 
-  public ContactTaskAssignmentService(ContactTaskRepository contactTaskRepository) {
+  public ContactTaskAssignmentService(
+      ContactTaskRepository contactTaskRepository,
+      ContactTaskChangeRepository contactTaskChangeRepository) {
     this.contactTaskRepository = contactTaskRepository;
+    this.contactTaskChangeRepository = contactTaskChangeRepository;
   }
 
-  // 상담에 속한 연락 작업에 담당자와 기한 정보 저장
+  // 연락 작업을 잠근 뒤 배정 정보와 변경 이력 저장
   @Transactional
   public boolean assign(
       long consultationId, long taskId, String assignee, Instant dueAt,
-      Instant customerPreferredAt, Instant agreedContactAt) {
-    var task = contactTaskRepository.findByIdAndConsultation_Id(taskId, consultationId);
-    if (task.isEmpty()) {
+      Instant customerPreferredAt, Instant agreedContactAt,
+      String changedBy, String changeReason) {
+    var existing = contactTaskRepository.findByIdAndConsultation_Id(taskId, consultationId);
+    if (existing.isEmpty()) {
       return false;
     }
 
-    task.get().assign(assignee, dueAt, customerPreferredAt, agreedContactAt);
+    ContactTask task = existing.get();
+    String previousAssignee = task.getAssignee();
+    Instant previousEffectiveDueAt = task.getEffectiveDueAt();
+
+    task.assign(assignee, dueAt, customerPreferredAt, agreedContactAt);
+
+    if (!Objects.equals(previousAssignee, task.getAssignee())
+        || !Objects.equals(previousEffectiveDueAt, task.getEffectiveDueAt())) {
+      contactTaskChangeRepository.save(new ContactTaskChange(
+          task, previousAssignee, previousEffectiveDueAt,
+          changedBy, changeReason, Instant.now()));
+    }
+
     return true;
   }
 

@@ -30,4 +30,7 @@ public interface ContactTaskRepository extends JpaRepository<ContactTask, Long> 
         AND completed_at <= due_at
       """, nativeQuery = true)
   long countOnTimeFirstContacts(@Param("consultationId") long consultationId);
+
+  // 조회 대상 작업이 지정된 상담에 속하는지 확인
+  boolean existsByIdAndConsultation_Id(long taskId, long consultationId);
 }
