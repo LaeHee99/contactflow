@@ -533,7 +533,9 @@ class IntakeApiTest {
                   "reason": "고객이 문자 연락으로 변경 요청",
                   "scheduledAt": "%s",
                   "channel": "SMS",
-                  "assignee": "operator-001"
+                  "assignee": "operator-001",
+                  "changedBy": "operator-002",
+                  "changeReason": "고객 요청으로 연락 채널을 문자로 변경"
                 }
                 """.formatted(scheduledAt)))
         .andExpect(status().isOk());
@@ -548,6 +550,19 @@ class IntakeApiTest {
         .andExpect(jsonPath("$[1].scheduledAt").value(scheduledAt.toString()))
         .andExpect(jsonPath("$[1].channel").value("SMS"))
         .andExpect(jsonPath("$[1].startedAt").doesNotExist());
+
+    // 재연락 채널 변경 전후 값과 담당자·사유 조회 검증
+    mockMvc.perform(get(
+            "/api/consultations/{consultationId}/contact-tasks/{taskId}/history",
+            consultationId, callbackId))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].previousChannel")
+            .value(org.hamcrest.Matchers.contains("PHONE")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].newChannel")
+            .value(org.hamcrest.Matchers.contains("SMS")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].changeReason")
+            .value(org.hamcrest.Matchers.contains("고객 요청으로 연락 채널을 문자로 변경")))
+        .andExpect(jsonPath("$[?(@.changedBy == 'operator-002')].changedAt").isNotEmpty());
   }
 
   // 재연락 미응답 결과 기록 및 실제 연락 완료 미처리 검증
