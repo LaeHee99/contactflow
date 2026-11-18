@@ -13,16 +13,17 @@ public class ContactTaskAssignmentService {
     this.contactTaskRepository = contactTaskRepository;
   }
 
-  // 상담 내 연락 작업 검색 및 담당자·기한 저장
+  // 상담에 속한 연락 작업에 담당자와 기한 정보 저장
   @Transactional
   public boolean assign(
-      long consultationId, long taskId, String assignee, Instant dueAt, Instant customerPreferredAt) {
+      long consultationId, long taskId, String assignee, Instant dueAt,
+      Instant customerPreferredAt, Instant agreedContactAt) {
     var task = contactTaskRepository.findByIdAndConsultation_Id(taskId, consultationId);
     if (task.isEmpty()) {
       return false;
     }
 
-    task.get().assign(assignee, dueAt, customerPreferredAt);
+    task.get().assign(assignee, dueAt, customerPreferredAt, agreedContactAt);
     return true;
   }
 }

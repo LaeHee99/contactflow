@@ -52,8 +52,8 @@ public class ContactTaskController {
         taskId,
         request.assignee(),
         request.dueAt(),
-        request.customerPreferredAt()
-    );
+        request.customerPreferredAt(),
+        request.agreedContactAt());
 
     return assigned ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
   }
@@ -83,11 +83,12 @@ public class ContactTaskController {
   ) {
   }
 
-  // 담당자 필수 입력 및 기본 기한·고객 희망 시각 선택 입력
+  // 담당자 필수 입력 및 기본·희망·합의 시각 선택 입력
   public record AssignmentRequest(
       @NotBlank String assignee,
       Instant dueAt,
-      Instant customerPreferredAt
+      Instant customerPreferredAt,
+      Instant agreedContactAt
   ) {
   }
 }

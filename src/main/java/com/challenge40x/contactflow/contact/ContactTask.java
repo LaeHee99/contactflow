@@ -45,6 +45,9 @@ public class ContactTask {
   @Column(name = "customer_preferred_at")
   private Instant customerPreferredAt;
 
+  @Column(name = "agreed_contact_at")
+  private Instant agreedContactAt;
+
   @Column(name = "completed_at")
   private Instant completedAt;
 
@@ -165,16 +168,15 @@ public class ContactTask {
     return status.name();
   }
 
-  // 담당자 지정 및 기본 기한과 고객 희망 시각 별도 저장
-  void assign(String assignee, Instant dueAt, Instant customerPreferredAt) {
+  // 담당자 배정 및 기본·희망·합의 시각 기록
+  void assign(
+      String assignee, Instant dueAt, Instant customerPreferredAt, Instant agreedContactAt) {
     this.assignee = assignee;
-
-    // 배정 요청에 기한이 있을 때만 기존 기한 변경
     if (dueAt != null) {
       this.dueAt = dueAt;
     }
-
     this.customerPreferredAt = customerPreferredAt;
+    this.agreedContactAt = agreedContactAt;
   }
 
   // 배정된 담당자와 기본 연락 기한 조회
@@ -189,6 +191,24 @@ public class ContactTask {
   // 고객 희망 연락 시각 조회
   Instant getCustomerPreferredAt() {
     return customerPreferredAt;
+  }
+
+  // 고객과 합의한 연락 시각 조회
+  Instant getAgreedContactAt() {
+    return agreedContactAt;
+  }
+
+  // 합의 시각 우선 적용, 합의 전에는 기본 기한 반환
+  Instant getEffectiveDueAt() {
+    return agreedContactAt == null ? dueAt : agreedContactAt;
+  }
+
+  // 기본 기한보다 늦은 희망 시각의 합의 필요 여부 확인
+  boolean needsTimeConfirmation() {
+    return agreedContactAt == null
+        && customerPreferredAt != null
+        && dueAt != null
+        && customerPreferredAt.isAfter(dueAt);
   }
 
   // 연락 완료 기록 및 동일 요청 재전송 시 최초 기록 보존
